@@ -3,6 +3,7 @@
   "displayName": "pintos",
   "description": "pintos runtime",
   "version": "0.0.1",
+  "publisher": "gbenm",
   "engines": {
     "vscode": "^1.68.0"
   },
@@ -19,7 +20,23 @@
         "command": "pintos.helloWorld",
         "title": "Hello World Pintos"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "PintOS",
+      "properties": {
+        "pintos.baseRepository": {
+          "type": "string",
+          "default": "git://pintos-os.org/pintos-anon",
+          "description": "The base repository to get a snapshot of the PintOS project",
+          "minLength": 5
+        },
+        "pintos.baseRepositoryCodeFolder": {
+          "type": ["null", "string"],
+          "default": "src",
+          "description": "The folder "
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "yarn run package",
@@ -34,6 +51,7 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
+    "@types/fs-extra": "^9.0.13",
     "@types/glob": "^7.2.0",
     "@types/mocha": "^9.1.1",
     "@types/node": "16.x",
@@ -42,8 +60,10 @@
     "@typescript-eslint/parser": "^5.27.0",
     "@vscode/test-electron": "^2.1.3",
     "eslint": "^8.16.0",
+    "fs-extra": "^10.1.0",
     "glob": "^8.0.3",
     "mocha": "^10.0.0",
+    "simple-git": "^3.14.1",
     "ts-loader": "^9.3.0",
     "typescript": "^4.7.2",
     "webpack": "^5.72.1",

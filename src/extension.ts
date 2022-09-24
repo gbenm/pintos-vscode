@@ -1,6 +1,9 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode"
+import { setupPintosProject } from "./vscode/create"
+
+const output = createPintosOutputChannel()
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -15,12 +18,20 @@ export function activate(context: vscode.ExtensionContext) {
   let disposable = vscode.commands.registerCommand("pintos.helloWorld", () => {
     // The code you place here will be executed every time your command is executed
     // Display a message box to the user
-    vscode.window.showInformationMessage("Hello World from pintos!")
-    vscode.commands.executeCommand("remote-containers.reopenInContainer")
+    // vscode.window.showInformationMessage("Hello World from pintos!")
+    // vscode.commands.executeCommand("remote-containers.reopenInContainer")
+    setupPintosProject(context, output)
   })
 
   context.subscriptions.push(disposable)
 }
 
+function createPintosOutputChannel() {
+  const output = vscode.window.createOutputChannel("PintOS")
+  return output
+}
+
 // this method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+  output.dispose()
+}

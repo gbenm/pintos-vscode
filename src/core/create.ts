@@ -14,11 +14,11 @@ end_of_line = lf
 charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
-\n`
+`
 
 const defaultGitAttributes = `# Don't normalize
 * -text
-\n`
+`
 
 export async function clonePintosSnapshot({ localPath, outputChannel, repoUrl, codeFolder }: {
   repoUrl: string
@@ -51,15 +51,17 @@ async function supportPartialClone(git: SimpleGit): Promise<boolean> {
   return version.major >= 2 && version.minor >= 27
 }
 
-export async function initPintosProject({ output, exists, removeGitDir, writeFile }: {
+export async function initPintosProject({ output, pintosPath, exists, removeGitDir, writeFile }: {
   /** the snapshot must not contain a git repo */
   removeGitDir: (gitDirName: string) => OptionalPromiseLike<void>
   exists: (filename: string) => OptionalPromiseLike<boolean>
   writeFile: (filename: string, content: string) => OptionalPromiseLike<void>
   gitRemote: string
+  pintosPath: string
   output: OutputChannel
 }) {
   const git = simpleGit({ config: ["init.defaultbranch=pepito"] })
+  git.cwd({ path: pintosPath, root: true })
   git.outputHandler(gitOutputHandler(output))
 
   const gitDir = ".git"

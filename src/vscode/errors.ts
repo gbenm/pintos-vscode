@@ -1,12 +1,12 @@
 import * as vscode from "vscode"
 
-export function handleError (error: unknown, errorMessage = "An unknown error occurred") {
+export function handleError (error: unknown, errorMessage?: string) {
   if (error instanceof PintOSExtensionError) {
     vscode.window.showErrorMessage(error.message)
   } else if (error instanceof PintOSExtensionCancellationError) {
     vscode.window.showErrorMessage(error.message ?? "Canceled Action")
   } else if (error instanceof Error) {
-    const thenable = vscode.window.showErrorMessage(errorMessage, "show stacktrace")
+    const thenable = vscode.window.showErrorMessage(errorMessage ?? error.message, "show stacktrace")
     thenable.then((value) => {
       if (value === "show stacktrace") {
         vscode.window.showErrorMessage(`[${error.message}] ${error.stack ?? ""}`)

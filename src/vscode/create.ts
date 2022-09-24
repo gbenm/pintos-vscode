@@ -34,11 +34,13 @@ export async function createPintosProject (context: vscode.ExtensionContext, out
       })
     )
     output.appendLine("clone done!")
-    const dstUri = await mvPintosCodeToUserInputFolder({ output, localPath })
-    const action = await vscode.window.showInformationMessage("Done!. Good luck!", "open PintOS")
+    const pintosPjUri = await mvPintosCodeToUserInputFolder({ output, localPath })
 
+    vscInitPintosProject(pintosPjUri.fsPath, output)
+
+    const action = await vscode.window.showInformationMessage("Done!. Good luck!", "open PintOS")
     if (action === "open PintOS") {
-      vscode.commands.executeCommand("vscode.openFolder", dstUri)
+      vscode.commands.executeCommand("vscode.openFolder", pintosPjUri)
     }
   } catch (e) {
     handleError(e)
@@ -74,21 +76,28 @@ async function mvPintosCodeToUserInputFolder({ output, localPath }: {
   return dstUri
 }
 
-export async function vscInitPintosProject(localPath: string, output: vscode.OutputChannel) {
+export async function vscInitPintosProject(pintosPath: string, output: vscode.OutputChannel) {
   output.appendLine("start: init project")
   await initPintosProject({
     output,
+    pintosPath,
     gitRemote: "testing",
     exists(filename) {
-      return existsSync(uriFromCurrentWorkspace(filename).fsPath)
+      output.appendLine(join(pintosPath, filename))
+      return existsSync(join(pintosPath, filename))
     },
     removeGitDir(filename) {
-      return vscode.workspace.fs.delete(uriFromCurrentWorkspace(filename))
+      output.appendLine(parseUri(pintosPath, filename).toString())
+      return vscode.workspace.fs.delete(parseUri(pintosPath, filename), { recursive: true })
     },
     writeFile(filename, content) {
-      return vscode.workspace.fs.writeFile(uriFromCurrentWorkspace(filename), new TextEncoder().encode(content))
+      return vscode.workspace.fs.writeFile(parseUri(pintosPath, filename), new TextEncoder().encode(content))
     }
   })
+}
+
+function parseUri(path: string, ...pathSegments: string[]) {
+  return vscode.Uri.parse(join(path, ...pathSegments))
 }
 
 function getUserInput({ title, placeholder }: {

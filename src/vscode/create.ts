@@ -1,12 +1,13 @@
-import simpleGit from "simple-git"
 import * as vscode from "vscode"
 import { mkdirsSync, removeSync } from "fs-extra"
-import { join } from "path"
+import { join } from "node:path"
 import { ExtConfig } from "./config"
-import { clonePintosSnapshot } from "../core/create"
+import { clonePintosSnapshot, initPintosProject } from "../core/create"
 import { handleError, PintOSExtensionCancellationError } from "./errors"
+import { existsSync } from "node:fs"
+import { TextEncoder } from "node:util"
 
-export async function setupPintosProject (context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+export async function createPintosProject (context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
   const path = context.globalStorageUri.fsPath
   mkdirsSync(path)
 
@@ -34,7 +35,7 @@ export async function setupPintosProject (context: vscode.ExtensionContext, outp
     )
     output.appendLine("clone done!")
     const dstUri = await mvPintosCodeToUserInputFolder({ output, repoPath })
-    const action = await vscode.window.showInformationMessage("Setup complete. Good luck!", "open PintOS")
+    const action = await vscode.window.showInformationMessage("Done!. Good luck!", "open PintOS")
 
     if (action === "open PintOS") {
       vscode.commands.executeCommand("vscode.openFolder", dstUri)
@@ -58,7 +59,7 @@ async function mvPintosCodeToUserInputFolder({ output, repoPath }: {
       placeholder:  "e.g. pintos"
     })
   } catch {
-    output.appendLine("Stop setup")
+    output.appendLine("Stopped")
     throw new PintOSExtensionCancellationError()
   }
 
@@ -71,6 +72,22 @@ async function mvPintosCodeToUserInputFolder({ output, repoPath }: {
   )
   output.appendLine(`Open ${dstUri.fsPath} to start your project`)
   return dstUri
+}
+
+export async function vscInitPintosProject(output: vscode.OutputChannel) {
+  await initPintosProject({
+    output,
+    gitRemote: "testing",
+    fileExists(filename) {
+      return existsSync(filename)
+    },
+    removeGitDir(filename) {
+      return vscode.workspace.fs.delete(uriFromCurrentWorkspace(filename))
+    },
+    writeFile(filename, content) {
+      return vscode.workspace.fs.writeFile(uriFromCurrentWorkspace(filename), new TextEncoder().encode(content))
+    }
+  })
 }
 
 function getUserInput({ title, placeholder }: {
@@ -94,6 +111,11 @@ function getUserInput({ title, placeholder }: {
 
     input.onDidHide(reject)
   })
+}
+
+function uriFromCurrentWorkspace (...pathSegments: string[]) {
+  const currentWorkspaceUri = getCurrentWorkspaceUri()
+  return vscode.Uri.joinPath(currentWorkspaceUri, ...pathSegments)
 }
 
 function getCurrentWorkspaceUri() {

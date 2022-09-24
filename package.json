@@ -11,15 +11,16 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:pintos.helloWorld"
+    "onCommand:pintos.createNewProject",
+    "workspaceContains:utils/pintos"
   ],
   "main": "./dist/extension.js",
   "extensionDependencies": ["EditorConfig.EditorConfig"],
   "contributes": {
     "commands": [
       {
-        "command": "pintos.helloWorld",
-        "title": "Hello World Pintos"
+        "command": "pintos.createNewProject",
+        "title": "Create a new PintOS project"
       }
     ],
     "configuration": {

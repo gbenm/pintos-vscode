@@ -73,7 +73,10 @@ async function mvPintosCodeToUserInputFolder({ output, repoPath }: {
   return dstUri
 }
 
-function getUserInput({ title, placeholder }: UserInputArgs): Promise<string> {
+function getUserInput({ title, placeholder }: {
+  title: string
+  placeholder: string
+}): Promise<string> {
   const input = vscode.window.createInputBox()
   input.title = title
   input.placeholder = placeholder
@@ -91,11 +94,6 @@ function getUserInput({ title, placeholder }: UserInputArgs): Promise<string> {
 
     input.onDidHide(reject)
   })
-}
-
-interface UserInputArgs {
-  title: string
-  placeholder: string
 }
 
 function getCurrentWorkspaceUri() {

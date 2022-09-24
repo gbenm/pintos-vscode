@@ -20,8 +20,8 @@ const defaultGitAttributes = `# Don't normalize
 * -text
 \n`
 
-export async function clonePintosSnapshot({ localPath, outputChannel, repoPath, codeFolder }: {
-  repoPath: string
+export async function clonePintosSnapshot({ localPath, outputChannel, repoUrl, codeFolder }: {
+  repoUrl: string
   localPath: string
   codeFolder?: string | null
   outputChannel: OutputChannel
@@ -37,11 +37,11 @@ export async function clonePintosSnapshot({ localPath, outputChannel, repoPath, 
 
   if (usePartialClone) {
     outputChannel.appendLine("use partial clone mode")
-    await git.clone(repoPath, localPath, ["--progress", "--sparse", "--filter=blob:none", "--depth=1"])
+    await git.clone(repoUrl, localPath, ["--progress", "--sparse", "--filter=blob:none", "--depth=1"])
       .cwd({ path: localPath, root: true })
       .raw("sparse-checkout", "add", codeFolder)
   } else {
-    await git.clone(repoPath, localPath, ["--progress"])
+    await git.clone(repoUrl, localPath, ["--progress"])
   }
 }
 
@@ -51,10 +51,10 @@ async function supportPartialClone(git: SimpleGit): Promise<boolean> {
   return version.major >= 2 && version.minor >= 27
 }
 
-export async function initPintosProject({ output, fileExists, removeGitDir, writeFile }: {
+export async function initPintosProject({ output, exists, removeGitDir, writeFile }: {
   /** the snapshot must not contain a git repo */
   removeGitDir: (gitDirName: string) => OptionalPromiseLike<void>
-  fileExists: (filename: string) => OptionalPromiseLike<boolean>
+  exists: (filename: string) => OptionalPromiseLike<boolean>
   writeFile: (filename: string, content: string) => OptionalPromiseLike<void>
   gitRemote: string
   output: OutputChannel
@@ -62,19 +62,20 @@ export async function initPintosProject({ output, fileExists, removeGitDir, writ
   const git = simpleGit({ config: ["init.defaultbranch=pepito"] })
   git.outputHandler(gitOutputHandler(output))
 
-  if (await git.checkIsRepo()) {
-    await removeGitDir(".git")
+  const gitDir = ".git"
+  if (exists(gitDir)) {
+    await removeGitDir(gitDir)
   }
 
   const gitAttributesFile = ".gitattributes"
   await conditionalExecute({
-    condition: !await fileExists(gitAttributesFile),
+    condition: !await exists(gitAttributesFile),
     execute: writeFile.bind(null, gitAttributesFile, defaultGitAttributes)
   })
 
   const editorConfigFile = ".editorconfig"
   await conditionalExecute({
-    condition: !await fileExists(editorConfigFile),
+    condition: !await exists(editorConfigFile),
     execute: writeFile.bind(null, editorConfigFile, defaultEditorConfig)
   })
 

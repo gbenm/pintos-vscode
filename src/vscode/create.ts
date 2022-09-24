@@ -14,7 +14,7 @@ export async function createPintosProject (context: vscode.ExtensionContext, out
   output.show()
 
   const localPath = join(path, "temp")
-  const repoPath = ExtConfig.baseRepository
+  const repoUrl = ExtConfig.baseRepository
   const codeFolder = ExtConfig.baseRepositoryCodeFolder
 
   removeSync(localPath)
@@ -28,13 +28,13 @@ export async function createPintosProject (context: vscode.ExtensionContext, out
       },
       () => clonePintosSnapshot({
         localPath,
-        repoPath,
+        repoUrl,
         outputChannel: output,
         codeFolder
       })
     )
     output.appendLine("clone done!")
-    const dstUri = await mvPintosCodeToUserInputFolder({ output, repoPath })
+    const dstUri = await mvPintosCodeToUserInputFolder({ output, localPath })
     const action = await vscode.window.showInformationMessage("Done!. Good luck!", "open PintOS")
 
     if (action === "open PintOS") {
@@ -45,9 +45,9 @@ export async function createPintosProject (context: vscode.ExtensionContext, out
   }
 }
 
-async function mvPintosCodeToUserInputFolder({ output, repoPath }: {
+async function mvPintosCodeToUserInputFolder({ output, localPath }: {
   output: vscode.OutputChannel,
-  repoPath: string
+  localPath: string
 }): Promise<vscode.Uri> {
   const currentWorkspaceUri = getCurrentWorkspaceUri()
 
@@ -66,7 +66,7 @@ async function mvPintosCodeToUserInputFolder({ output, repoPath }: {
   output.appendLine("Start moving the source code")
   const dstUri = vscode.Uri.joinPath(currentWorkspaceUri, pintosTarget.folder)
   vscode.workspace.fs.rename(
-    vscode.Uri.parse(join(repoPath, "src")),
+    vscode.Uri.parse(join(localPath, "src")),
     dstUri,
     { overwrite: true }
   )
@@ -74,12 +74,13 @@ async function mvPintosCodeToUserInputFolder({ output, repoPath }: {
   return dstUri
 }
 
-export async function vscInitPintosProject(output: vscode.OutputChannel) {
+export async function vscInitPintosProject(localPath: string, output: vscode.OutputChannel) {
+  output.appendLine("start: init project")
   await initPintosProject({
     output,
     gitRemote: "testing",
-    fileExists(filename) {
-      return existsSync(filename)
+    exists(filename) {
+      return existsSync(uriFromCurrentWorkspace(filename).fsPath)
     },
     removeGitDir(filename) {
       return vscode.workspace.fs.delete(uriFromCurrentWorkspace(filename))

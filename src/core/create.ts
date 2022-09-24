@@ -37,8 +37,7 @@ export interface CreationContext {
   outputChannel: OutputChannel
 }
 
-const initialEditorConfig = `
-# EditorConfig is awesome: https://EditorConfig.org
+export const initialEditorConfig = `# EditorConfig is awesome: https://EditorConfig.org
 
 # top-most EditorConfig file
 root = true
@@ -50,4 +49,8 @@ end_of_line = lf
 charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
-`
+\n`
+
+export const initialGitAttributes = `# Don't normalize
+* -text
+\n`

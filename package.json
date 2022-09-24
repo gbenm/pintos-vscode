@@ -21,6 +21,10 @@
       {
         "command": "pintos.createNewProject",
         "title": "Create a new PintOS project"
+      },
+      {
+        "command": "pintos.initProject",
+        "title": "Config current directory as PintOS project"
       }
     ],
     "configuration": {

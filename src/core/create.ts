@@ -1,5 +1,6 @@
 import simpleGit, { SimpleGit } from "simple-git"
-import { OutputChannel } from "./types"
+import { OptionalPromiseLike, OutputChannel } from "./types"
+import { conditionalExecute } from "./utils"
 
 const defaultEditorConfig = `# EditorConfig is awesome: https://EditorConfig.org
 
@@ -48,4 +49,41 @@ async function supportPartialClone(git: SimpleGit): Promise<boolean> {
   const version = await git.version()
 
   return version.major >= 2 && version.minor >= 27
+}
+
+export async function initPintosProject({ output, fileExists, removeGitDir, writeFile }: {
+  /** the snapshot must not contain a git repo */
+  removeGitDir: (gitDirName: string) => OptionalPromiseLike<void>
+  fileExists: (filename: string) => OptionalPromiseLike<boolean>
+  writeFile: (filename: string, content: string) => OptionalPromiseLike<void>
+  gitRemote: string
+  output: OutputChannel
+}) {
+  const git = simpleGit({ config: ["init.defaultbranch=pepito"] })
+  git.outputHandler(gitOutputHandler(output))
+
+  if (await git.checkIsRepo()) {
+    await removeGitDir(".git")
+  }
+
+  const gitAttributesFile = ".gitattributes"
+  await conditionalExecute({
+    condition: !await fileExists(gitAttributesFile),
+    execute: writeFile.bind(null, gitAttributesFile, defaultGitAttributes)
+  })
+
+  const editorConfigFile = ".editorconfig"
+  await conditionalExecute({
+    condition: !await fileExists(editorConfigFile),
+    execute: writeFile.bind(null, editorConfigFile, defaultEditorConfig)
+  })
+
+  await git.init()
+}
+
+function gitOutputHandler(output: OutputChannel) {
+  return (_cmd: string, stdout: NodeJS.ReadableStream, stderr: NodeJS.ReadableStream) => {
+    stdout.on("data", (buffer) => output.append(buffer.toString()))
+    stderr.on("data", (buffer) => output.append(buffer.toString()))
+  }
 }

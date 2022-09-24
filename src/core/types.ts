@@ -7,3 +7,5 @@ export interface OutputChannel {
   clear (): void
   replace (value: string): void
 }
+
+export type OptionalPromiseLike<T> = PromiseLike<T> | T

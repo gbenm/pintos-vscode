@@ -6,6 +6,7 @@ import { clonePintosSnapshot, initPintosProject } from "../core/create"
 import { executeOrStopOnError, handleError } from "./errors"
 import { existsSync } from "node:fs"
 import { TextEncoder } from "node:util"
+import { getCurrentWorkspaceUri, getUserInput, parseUri, showStopMessage } from "./utils"
 
 export async function createPintosProject (context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
   const path = context.globalStorageUri.fsPath
@@ -98,49 +99,4 @@ export async function vscInitPintosProject(pintosPath: string, output: vscode.Ou
       return vscode.workspace.fs.writeFile(parseUri(pintosPath, filename), new TextEncoder().encode(content))
     }
   })
-}
-
-function parseUri(path: string, ...pathSegments: string[]) {
-  return vscode.Uri.parse(join(path, ...pathSegments))
-}
-
-function showStopMessage(output: vscode.OutputChannel) {
-  return () => output.appendLine("Stopped")
-}
-
-function getUserInput({ title, placeholder, initialValue = "" }: {
-  title: string
-  placeholder: string
-  initialValue?: string
-}): Promise<string> {
-  const input = vscode.window.createInputBox()
-  input.title = title
-  input.placeholder = placeholder
-  input.value = initialValue
-  input.show()
-
-  return new Promise((resolve, reject) => {
-    input.onDidAccept(() => {
-      if (!input.value.trim()) {
-        return
-      }
-
-      resolve(input.value.trim())
-      input.hide()
-    })
-
-    input.onDidHide(reject)
-  })
-}
-
-function uriFromCurrentWorkspace (...pathSegments: string[]) {
-  const currentWorkspaceUri = getCurrentWorkspaceUri()
-  return vscode.Uri.joinPath(currentWorkspaceUri, ...pathSegments)
-}
-
-function getCurrentWorkspaceUri() {
-  const firstWorkspace = vscode.workspace.workspaceFolders?.[0]!
-  const currentFolderUri = firstWorkspace.uri
-
-  return currentFolderUri
 }

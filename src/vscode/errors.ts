@@ -4,7 +4,7 @@ export function handleError (error: unknown, errorMessage = "An unknown error oc
   if (error instanceof PintOSExtensionError) {
     vscode.window.showErrorMessage(error.message)
   } else if (error instanceof PintOSExtensionCancellationError) {
-    vscode.window.showErrorMessage("Canceled Action")
+    vscode.window.showErrorMessage(error.message ?? "Canceled Action")
   } else if (error instanceof Error) {
     const thenable = vscode.window.showErrorMessage(errorMessage, "show stacktrace")
     thenable.then((value) => {

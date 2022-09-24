@@ -3,8 +3,8 @@ import { mkdirsSync, removeSync } from "fs-extra"
 import { join } from "node:path"
 import { ExtConfig } from "./config"
 import { clonePintosSnapshot, initPintosProject } from "../core/create"
-import { executeOrStopOnError, handleError, PintOSExtensionCancellationError } from "./errors"
-import { existsSync, writeFileSync } from "node:fs"
+import { executeOrStopOnError, handleError } from "./errors"
+import { existsSync } from "node:fs"
 import { TextEncoder } from "node:util"
 
 export async function createPintosProject (context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {

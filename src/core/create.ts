@@ -1,7 +1,12 @@
 import simpleGit, { SimpleGit } from "simple-git"
 import { OutputChannel } from "./types"
 
-export async function clonePintosSnapshot({ localPath, outputChannel, repoPath, codeFolder }: CloneContext) {
+export async function clonePintosSnapshot({ localPath, outputChannel, repoPath, codeFolder }: {
+  repoPath: string
+  localPath: string
+  codeFolder?: string | null
+  outputChannel: OutputChannel
+}) {
   const git = simpleGit({
     config: ["core.autocrlf=input"],
     progress ({ method, progress, stage, processed, total }) {
@@ -25,16 +30,6 @@ async function supportPartialClone(git: SimpleGit): Promise<boolean> {
   const version = await git.version()
 
   return version.major >= 2 && version.minor >= 27
-}
-
-export interface CloneContext extends CreationContext {
-  repoPath: string,
-  localPath: string
-  codeFolder?: string | null
-}
-
-export interface CreationContext {
-  outputChannel: OutputChannel
 }
 
 export const initialEditorConfig = `# EditorConfig is awesome: https://EditorConfig.org

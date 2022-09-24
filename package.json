@@ -35,7 +35,12 @@
         "pintos.baseRepositoryCodeFolder": {
           "type": ["null", "string"],
           "default": "src",
-          "description": "The folder "
+          "description": "The folder containing the source code of PintOS"
+        },
+        "pintos.personalRepoUrl": {
+          "type": ["null", "string"],
+          "default": null,
+          "description": "Your repository"
         }
       }
     }

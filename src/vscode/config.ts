@@ -15,6 +15,11 @@ export class ExtConfig {
     return codeFolder ?? null
   }
 
+  static get personalRepoUrl (): string | null {
+    const personalRepoUrl = this.config.get<string>("personalRepoUrl")
+    return personalRepoUrl ?? null
+  }
+
   private static get config () {
     return vscode.workspace.getConfiguration("pintos")
   }

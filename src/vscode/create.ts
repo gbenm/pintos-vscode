@@ -3,8 +3,8 @@ import { mkdirsSync, removeSync } from "fs-extra"
 import { join } from "node:path"
 import { ExtConfig } from "./config"
 import { clonePintosSnapshot, initPintosProject } from "../core/create"
-import { handleError, PintOSExtensionCancellationError } from "./errors"
-import { existsSync } from "node:fs"
+import { executeOrStopOnError, handleError, PintOSExtensionCancellationError } from "./errors"
+import { existsSync, writeFileSync } from "node:fs"
 import { TextEncoder } from "node:util"
 
 export async function createPintosProject (context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
@@ -36,7 +36,7 @@ export async function createPintosProject (context: vscode.ExtensionContext, out
     output.appendLine("clone done!")
     const pintosPjUri = await mvPintosCodeToUserInputFolder({ output, localPath })
 
-    vscInitPintosProject(pintosPjUri.fsPath, output)
+    await vscInitPintosProject(pintosPjUri.fsPath, output)
 
     const action = await vscode.window.showInformationMessage("Done!. Good luck!", "open PintOS")
     if (action === "open PintOS") {
@@ -53,21 +53,17 @@ async function mvPintosCodeToUserInputFolder({ output, localPath }: {
 }): Promise<vscode.Uri> {
   const currentWorkspaceUri = getCurrentWorkspaceUri()
 
-  const pintosTarget = { folder: "" }
-
-  try {
-    pintosTarget.folder = await getUserInput({
+  const pintosTargetFolder = await executeOrStopOnError({
+    execute: () => getUserInput({
       title: "PintOS folder",
       placeholder:  "e.g. pintos"
-    })
-  } catch {
-    output.appendLine("Stopped")
-    throw new PintOSExtensionCancellationError()
-  }
+    }),
+    onError: showStopMessage(output)
+  })
 
   output.appendLine("Start moving the source code")
-  const dstUri = vscode.Uri.joinPath(currentWorkspaceUri, pintosTarget.folder)
-  vscode.workspace.fs.rename(
+  const dstUri = vscode.Uri.joinPath(currentWorkspaceUri, pintosTargetFolder)
+  await vscode.workspace.fs.rename(
     vscode.Uri.parse(join(localPath, "src")),
     dstUri,
     { overwrite: true }
@@ -78,16 +74,24 @@ async function mvPintosCodeToUserInputFolder({ output, localPath }: {
 
 export async function vscInitPintosProject(pintosPath: string, output: vscode.OutputChannel) {
   output.appendLine("start: init project")
+
+  const gitRemote = await executeOrStopOnError({
+    execute: () => getUserInput({
+      title: "Your repository",
+      placeholder: "e.g. https://github.com/gbenm/pintos-vscode",
+      initialValue: ExtConfig.personalRepoUrl ?? ""
+    }),
+    onError: showStopMessage(output)
+  })
+
   await initPintosProject({
     output,
     pintosPath,
-    gitRemote: "testing",
+    gitRemote,
     exists(filename) {
-      output.appendLine(join(pintosPath, filename))
       return existsSync(join(pintosPath, filename))
     },
     removeGitDir(filename) {
-      output.appendLine(parseUri(pintosPath, filename).toString())
       return vscode.workspace.fs.delete(parseUri(pintosPath, filename), { recursive: true })
     },
     writeFile(filename, content) {
@@ -100,13 +104,19 @@ function parseUri(path: string, ...pathSegments: string[]) {
   return vscode.Uri.parse(join(path, ...pathSegments))
 }
 
-function getUserInput({ title, placeholder }: {
+function showStopMessage(output: vscode.OutputChannel) {
+  return () => output.appendLine("Stopped")
+}
+
+function getUserInput({ title, placeholder, initialValue = "" }: {
   title: string
   placeholder: string
+  initialValue?: string
 }): Promise<string> {
   const input = vscode.window.createInputBox()
   input.title = title
   input.placeholder = placeholder
+  input.value = initialValue
   input.show()
 
   return new Promise((resolve, reject) => {

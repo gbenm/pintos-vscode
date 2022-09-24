@@ -51,7 +51,7 @@ async function supportPartialClone(git: SimpleGit): Promise<boolean> {
   return version.major >= 2 && version.minor >= 27
 }
 
-export async function initPintosProject({ output, pintosPath, exists, removeGitDir, writeFile }: {
+export async function initPintosProject({ output, pintosPath, exists, removeGitDir, writeFile, gitRemote }: {
   /** the snapshot must not contain a git repo */
   removeGitDir: (gitDirName: string) => OptionalPromiseLike<void>
   exists: (filename: string) => OptionalPromiseLike<boolean>
@@ -60,28 +60,37 @@ export async function initPintosProject({ output, pintosPath, exists, removeGitD
   pintosPath: string
   output: OutputChannel
 }) {
-  const git = simpleGit({ config: ["init.defaultbranch=pepito"] })
+  const git = simpleGit({ config: ["init.defaultbranch=main"] })
   git.cwd({ path: pintosPath, root: true })
   git.outputHandler(gitOutputHandler(output))
 
   const gitDir = ".git"
-  if (exists(gitDir)) {
+  if (await exists(gitDir)) {
     await removeGitDir(gitDir)
   }
 
   const gitAttributesFile = ".gitattributes"
   await conditionalExecute({
     condition: !await exists(gitAttributesFile),
-    execute: writeFile.bind(null, gitAttributesFile, defaultGitAttributes)
+    async execute () {
+      await writeFile(gitAttributesFile, defaultGitAttributes)
+      output.appendLine(`${gitAttributesFile} created successfully`)
+    }
   })
 
   const editorConfigFile = ".editorconfig"
   await conditionalExecute({
     condition: !await exists(editorConfigFile),
-    execute: writeFile.bind(null, editorConfigFile, defaultEditorConfig)
+    async execute () {
+      await writeFile(editorConfigFile, defaultEditorConfig)
+      output.appendLine(`${editorConfigFile} created successfully`)
+    }
   })
 
   await git.init()
+    .addRemote("origin", gitRemote)
+    .add(".")
+    .commit("feat: first commit")
 }
 
 function gitOutputHandler(output: OutputChannel) {

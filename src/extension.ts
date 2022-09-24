@@ -6,15 +6,14 @@ import { createPintosProject } from "./vscode/create"
 const output = createPintosOutputChannel()
 
 export function activate(context: vscode.ExtensionContext) {
-  context.subscriptions.push(
-    vscode.commands.registerCommand("pintos.createNewProject", () => {
-      // vscode.window.showInformationMessage("Hello World from pintos!")
-      // vscode.commands.executeCommand("remote-containers.reopenInContainer")
-      createPintosProject(context, output)
-    })
-  )
 
-  vscode.window.showInformationMessage("PintOS is now available")
+  // This commands will use for container API
+  // vscode.window.showInformationMessage("Hello World from pintos!")
+  // vscode.commands.executeCommand("remote-containers.reopenInContainer")
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("pintos.createNewProject", () => createPintosProject(context, output))
+  )
 }
 
 function createPintosOutputChannel() {

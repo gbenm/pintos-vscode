@@ -17,6 +17,15 @@ export function handleError (error: unknown, errorMessage?: string) {
   }
 }
 
+export function executeOrStopOnError<T>({ execute, message, onError }: { execute: () => T, message?: string, onError?: (e: unknown) => void }) {
+  try {
+    return execute()
+  } catch (e) {
+    onError?.(e)
+    throw new PintOSExtensionCancellationError(message)
+  }
+}
+
 export class PintOSExtensionError extends Error {}
 
 export class PintOSExtensionCancellationError extends Error {}

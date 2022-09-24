@@ -1,6 +1,24 @@
 import simpleGit, { SimpleGit } from "simple-git"
 import { OutputChannel } from "./types"
 
+const defaultEditorConfig = `# EditorConfig is awesome: https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+\n`
+
+const defaultGitAttributes = `# Don't normalize
+* -text
+\n`
+
 export async function clonePintosSnapshot({ localPath, outputChannel, repoPath, codeFolder }: {
   repoPath: string
   localPath: string
@@ -31,21 +49,3 @@ async function supportPartialClone(git: SimpleGit): Promise<boolean> {
 
   return version.major >= 2 && version.minor >= 27
 }
-
-export const initialEditorConfig = `# EditorConfig is awesome: https://EditorConfig.org
-
-# top-most EditorConfig file
-root = true
-
-[*]
-indent_style = space
-indent_size = 4
-end_of_line = lf
-charset = utf-8
-trim_trailing_whitespace = true
-insert_final_newline = true
-\n`
-
-export const initialGitAttributes = `# Don't normalize
-* -text
-\n`

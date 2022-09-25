@@ -29,6 +29,10 @@
       {
         "command": "pintos.setupDevContainer",
         "title": "Setup Dev Container for PintOS"
+      },
+      {
+        "command": "pintos.checkHealth",
+        "title": "Check PintOS health"
       }
     ],
     "configuration": {

@@ -19,7 +19,7 @@
     "workspaceContains:utils/pintos"
   ],
   "main": "./dist/extension.js",
-  "extensionDependencies": ["EditorConfig.EditorConfig", "ms-vscode-remote.remote-containers"],
+  "extensionDependencies": ["EditorConfig.EditorConfig"],
   "contributes": {
     "commands": [
       {

@@ -1,4 +1,4 @@
-import { Curry, First, IfAisEmpty, LastFn, PartialArray, RestOfA, UnionToIntersection, WithoutFirst } from "./types"
+import { Curry, LastFn, UnionToIntersection } from "./types"
 
 export function compose<BR, FNS extends [...((...v: any[]) => any)[]]>(
   baseFn: (v: any) => BR,

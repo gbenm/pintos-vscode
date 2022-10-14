@@ -1,6 +1,5 @@
 import * as vscode from "vscode"
-import { execSync } from "node:child_process"
-import { getCurrentWorkspaceUri, uriFromCurrentWorkspace } from "./utils"
+import { getCurrentWorkspaceUri } from "./utils"
 import { handleError } from "./errors"
 import { executeCommand } from "../core/launch"
 

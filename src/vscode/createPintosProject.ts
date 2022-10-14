@@ -8,7 +8,7 @@ import { existsSync } from "node:fs"
 import { TextEncoder } from "node:util"
 import { getCurrentWorkspaceUri, getUserInput, parseUri, showStopMessage } from "./utils"
 
-export async function createPintosProject (context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+export default async function (context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
   const path = context.globalStorageUri.fsPath
   mkdirsSync(path)
 
@@ -73,7 +73,7 @@ async function mvPintosCodeToUserInputFolder({ output, localPath }: {
   return dstUri
 }
 
-export async function vscInitPintosProject(pintosPath: string, output: vscode.OutputChannel) {
+async function vscInitPintosProject(pintosPath: string, output: vscode.OutputChannel) {
   output.appendLine("start: init project")
 
   const gitRemote = await executeOrStopOnError({

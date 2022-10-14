@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode"
 import checkPintosHealth from "./vscode/checkPintosHealth"
-import { createPintosProject } from "./vscode/create"
+import createPintosProject from "./vscode/createPintosProject"
 import setupDevContainer from "./vscode/setupDevContainer"
 
 const output = createPintosOutputChannel()

@@ -59,6 +59,7 @@ async function mvPintosCodeToUserInputFolder({ output, localPath }: {
       title: "PintOS folder",
       placeholder:  "e.g. pintos"
     }),
+    message: "stop PintOS setup",
     onError: showStopMessage(output)
   })
 
@@ -82,6 +83,7 @@ async function vscInitPintosProject(pintosPath: string, output: vscode.OutputCha
       placeholder: "e.g. https://github.com/gbenm/pintos-vscode",
       initialValue: ExtConfig.personalRepoUrl ?? ""
     }),
+    message: "stop PintOS setup",
     onError: showStopMessage(output)
   })
 

@@ -8,7 +8,6 @@ import setupDevContainer from "./vscode/setupDevContainer"
 const output = createPintosOutputChannel()
 
 export function activate(context: vscode.ExtensionContext) {
-
   // This commands will use for container API
   // vscode.commands.executeCommand("remote-containers.reopenInContainer")
 
@@ -17,6 +16,8 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("pintos.setupDevContainer", () => setupDevContainer(output)),
     vscode.commands.registerCommand("pintos.checkHealth", () => checkPintosHealth(output))
   )
+
+  vscode.commands.executeCommand("setContext", "pintos.active", true)
 }
 
 function createPintosOutputChannel() {

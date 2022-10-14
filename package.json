@@ -37,6 +37,18 @@
         "title": "Check PintOS health"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "pintos.setupDevContainer",
+          "when": "pintos.active"
+        },
+        {
+          "command": "pintos.checkHealth",
+          "when": "pintos.active"
+        }
+      ]
+    },
     "configuration": {
       "title": "PintOS",
       "properties": {

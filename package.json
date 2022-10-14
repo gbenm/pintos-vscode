@@ -19,7 +19,9 @@
     "workspaceContains:utils/pintos"
   ],
   "main": "./dist/extension.js",
-  "extensionDependencies": ["EditorConfig.EditorConfig"],
+  "extensionDependencies": [
+    "EditorConfig.EditorConfig"
+  ],
   "contributes": {
     "commands": [
       {
@@ -45,12 +47,18 @@
           "minLength": 5
         },
         "pintos.baseRepositoryCodeFolder": {
-          "type": ["null", "string"],
+          "type": [
+            "null",
+            "string"
+          ],
           "default": "src",
           "description": "The folder containing the source code of PintOS"
         },
         "pintos.personalRepoUrl": {
-          "type": ["null", "string"],
+          "type": [
+            "null",
+            "string"
+          ],
           "default": null,
           "description": "Your repository"
         }

@@ -2,6 +2,7 @@ import * as vscode from "vscode"
 import { execSync } from "node:child_process"
 import { getCurrentWorkspaceUri, uriFromCurrentWorkspace } from "./utils"
 import { handleError } from "./errors"
+import { executeCommand } from "../core/launch"
 
 export default async function (output: vscode.OutputChannel) {
   output.show()
@@ -11,8 +12,14 @@ export default async function (output: vscode.OutputChannel) {
   try {
     process.chdir(getCurrentWorkspaceUri().fsPath)
     output.appendLine(`current directory ${process.cwd()}`)
-    executeCommand(output, "cd utils && make")
-    executeCommand(output, "cd threads && make")
+    executeCommand({
+      output,
+      cmd: "cd utils && make"
+    })
+    executeCommand({
+      output,
+      cmd: "cd threads && make"
+    })
     output.appendLine("compiling done!")
     terminal.show()
     terminal.sendText("cd threads", true)
@@ -23,10 +30,4 @@ export default async function (output: vscode.OutputChannel) {
   } finally {
     process.chdir(cwd)
   }
-}
-
-function executeCommand(output: vscode.OutputChannel, cmd: string) {
-  output.appendLine(`[start] ${cmd}`)
-  execSync(cmd)
-  output.appendLine(`[complete] ${cmd}`)
 }

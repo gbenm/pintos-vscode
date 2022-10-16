@@ -1,4 +1,4 @@
-import { execSync, spawn } from "node:child_process"
+import { ChildProcessWithoutNullStreams, execSync, spawn } from "node:child_process"
 import { ensureSingleValue } from "../utils/fp/arrays"
 import { OptionalPromiseLike, OutputChannel } from "../types"
 import { buildSingleCommand } from "./utils"
@@ -72,4 +72,30 @@ export function spawnCommand({ cmd, args, cwd }: {
     stdio: "pipe"
   })
   return child
+}
+
+export function childProcessToPromise({ process }: {
+  process: ChildProcessWithoutNullStreams
+}): Promise<Buffer>
+export function childProcessToPromise({ process, onData }: {
+  process: ChildProcessWithoutNullStreams
+  onData: (data: Buffer) => void
+}): Promise<void>
+export function childProcessToPromise({ process, onData }: {
+  process: ChildProcessWithoutNullStreams,
+  onData?: (data: Buffer) => void
+}): Promise<void | Buffer> {
+  return new Promise((resolve, reject) => {
+    if (onData) {
+      process.stdout.on("data", onData)
+      process.on("exit", resolve)
+    } else {
+      const result: Buffer[] = []
+      process.stdout.on("data", (data: Buffer) => {
+        result.push(data)
+      })
+      process.on("exit", () => resolve(Buffer.concat(result)))
+    }
+    process.on("error", reject)
+  })
 }

@@ -1,24 +1,34 @@
 import { join as joinPath } from "path"
-import { executeCommand, spawnCommand } from "../launch"
+import { childProcessToPromise, spawnCommand } from "../launch"
 import { TestItem, TestStatus } from "./TestItem"
 
-export function runSpecificTest(item: TestItem): TestStatus {
-  const result = executeCommand({
+export async function runSpecificTest(item: TestItem): Promise<TestStatus> {
+  const testProcess = spawnCommand({
     cwd: item.phase,
-    cmd: `make ${joinPath(item.basePath, item.name.concat(".result"))}`
+    cmd: "make",
+    args: [joinPath(item.basePath, item.name.concat(".result"))]
   })
 
-  const matches = result.toString().match(/^pass/mi)
+  item.process = testProcess
 
-  if (matches) {
-    return "passed"
+  try {
+    const result = await childProcessToPromise({ process: testProcess })
+
+    const matches = result.toString().match(/^pass/mi)
+
+    if (matches) {
+      return "passed"
+    }
+
+    return "failed"
+  } catch {
+    return "errored"
   }
-
-  return "failed"
 }
 
-export function runInnerTests(item: TestItem): TestStatus {
-  const allPassed = item.items.map(runSpecificTest).every(test => test === "passed")
+export async function runInnerTests(item: TestItem): Promise<TestStatus> {
+  const testResults = await Promise.all(item.items.map(runSpecificTest))
+  const allPassed = testResults.every(test => test === "passed")
 
   return allPassed ? "passed" : "failed"
 }

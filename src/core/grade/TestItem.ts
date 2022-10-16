@@ -14,8 +14,12 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 
   public get status () {
     if (this.isComposite) {
-      this.items.map(prop("status")).reduce((currentStatus, itemStatus) => {
+      const currentStatus = this.items.map(prop("status")).reduce((currentStatus, itemStatus) => {
         const loadingStatus: TestStatus[] = ["queued", "started"]
+        if (currentStatus === "started") {
+          return "started"
+        }
+
         if (loadingStatus.includes(itemStatus)) {
           return itemStatus
         }
@@ -27,6 +31,8 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 
         return itemStatus
       }, "unknown")
+
+      return currentStatus
     }
 
     return this._status

@@ -14,25 +14,7 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 
   public get status () {
     if (this.isComposite) {
-      const currentStatus = this.items.map(prop("status")).reduce((currentStatus, itemStatus) => {
-        const loadingStatus: TestStatus[] = ["queued", "started"]
-        if (currentStatus === "started") {
-          return "started"
-        }
-
-        if (loadingStatus.includes(itemStatus)) {
-          return itemStatus
-        }
-
-        const highStatus: TestStatus[] = ["errored", "failed", ...loadingStatus]
-        if (highStatus.includes(currentStatus)) {
-          return currentStatus
-        }
-
-        return itemStatus
-      }, "unknown")
-
-      return currentStatus
+      return this.statusBaseOnChildren()
     }
 
     return this._status
@@ -75,6 +57,28 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     if (this.items.includes(item)) {
       this.emit("status", this)
     }
+  }
+
+  private statusBaseOnChildren () {
+    const currentStatus = this.items.map(prop("status")).reduce((currentStatus, itemStatus) => {
+      const loadingStatus: TestStatus[] = ["queued", "started"]
+      if (currentStatus === "started") {
+        return "started"
+      }
+
+      if (loadingStatus.includes(itemStatus)) {
+        return itemStatus
+      }
+
+      const highStatus: TestStatus[] = ["errored", "failed", ...loadingStatus]
+      if (highStatus.includes(currentStatus)) {
+        return currentStatus
+      }
+
+      return itemStatus
+    }, "unknown")
+
+    return currentStatus
   }
 
   public async run(): Promise<TestStatus> {

@@ -98,9 +98,17 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     return this.status
   }
 
-  public stop() {
+  public stop(): boolean {
     this.status = "unknown"
-    return this.process?.kill() || false
+    if (this.process) {
+      return this.process.kill()
+    }
+
+    if (this.items.length > 0) {
+      return this.items.map(item => item.stop()).reduce((acc, success) => acc && success, true)
+    }
+
+    return false
   }
 
   public lookup(testId: string | null): TestItem | null {

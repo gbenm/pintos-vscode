@@ -1,4 +1,4 @@
-import { Curry, LastFn, UnionToIntersection } from "./types"
+import { Curry, LastFn, ObjectWith, UnionToIntersection } from "./types"
 
 export function compose<BR, FNS extends [...((...v: any[]) => any)[]]>(
   baseFn: (v: any) => BR,
@@ -24,3 +24,15 @@ export function curry<Fn extends (...args: any[]) => any>(fn: Fn): UnionToInters
     return fn.call(null, ...args)
   }
 }
+
+export function prop <T extends string>(prop: T): <O extends ObjectWith<T>>(obj: O) => typeof obj[typeof prop]
+export function prop <T extends string, O extends ObjectWith<T>>(prop: T, obj: O): typeof obj[typeof prop]
+export function prop <T extends string, O extends ObjectWith<T>>(prop: T, obj?: O): ((obj: O) => typeof obj[typeof prop]) | O[T] {
+  if (obj) {
+    return obj[prop]
+  }
+
+  return obj => obj[prop]
+}
+
+export const notNull = <T>(item: T) => item !== null

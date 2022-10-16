@@ -87,7 +87,7 @@
     "pretest": "yarn run compile-tests && yarn run compile && yarn run lint",
     "lint": "eslint src --ext ts",
     "list": "npm list --production --json",
-    "test": "node ./out/test/runTest.js"
+    "test": "yarn pretest && node ./out/test/runTest.js"
   },
   "devDependencies": {
     "@types/fs-extra": "^9.0.13",

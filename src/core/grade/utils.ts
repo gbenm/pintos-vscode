@@ -9,6 +9,8 @@ export const isTest: IsTestChecker = dirent => {
   return dirent.isDirectory()
 }
 
+export const isRootTest: IsTestChecker = dirent => dirent.isDirectory()
+
 export const generateTestId: TestIdGen = ({ baseId, segment }) => {
   if (baseId) {
     return `${baseId}/${segment}`

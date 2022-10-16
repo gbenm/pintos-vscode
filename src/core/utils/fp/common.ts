@@ -1,4 +1,4 @@
-import { Curry, LastFn, ObjectWith, UnionToIntersection } from "./types"
+import { Curry, FilterFn, LastFn, ObjectWith, UnionToIntersection } from "./types"
 
 export function compose<BR, FNS extends [...((...v: any[]) => any)[]]>(
   baseFn: (v: any) => BR,
@@ -36,3 +36,22 @@ export function prop <T extends string, O extends ObjectWith<T>>(prop: T, obj?: 
 }
 
 export const notNull = <T>(item: T) => item !== null
+
+export const filtersAnd = <T, I>(...fns: FilterFn<T, I>[]): FilterFn<T, I> => (item,  index) => fns.map(fn => fn(item, index)).reduce((a, b) => a && b, true)
+
+export function iterableForEach<T>(fn: (item: T, i: number) => void, iterator: Iterable<T>, skipElement?: (item: T, i: number) => boolean) {
+  let i = 0
+  if (skipElement) {
+    for (let item of iterator) {
+      if (skipElement(item, i)) {
+        continue
+      }
+
+      fn(item, i++)
+    }
+  } else {
+    for (let item of iterator) {
+      fn(item, i++)
+    }
+  }
+}

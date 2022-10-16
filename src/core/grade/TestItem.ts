@@ -1,7 +1,9 @@
 import { ChildProcessWithoutNullStreams } from "node:child_process"
 import { EventEmitter } from "node:events"
-import { OptionalPromiseLike } from "../types"
-import { prop } from "../utils/fp/common"
+import { OptionalPromiseLike, OutputChannel } from "../types"
+import { iterableForEach, prop } from "../utils/fp/common"
+
+export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skipped"]
 
 export class TestItem extends EventEmitter implements Iterable<TestItem> {
   public readonly id: string
@@ -23,7 +25,7 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 
   public set status (value: TestStatus) {
     if (this.isComposite) {
-      throw new TestItemStatusFreezeError("can't change the status of composite")
+      throw new TestItemStatusFreezeError(`can't change the status of composite ${this.id}`)
     }
     this._status = value
     this.emit("status", this)
@@ -93,22 +95,29 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     return currentStatus
   }
 
-  public async run(): Promise<TestStatus> {
-    this.status = await this._run(this)
+  public async run(output?: OutputChannel): Promise<TestStatus> {
+    this.status = await this._run(this, output)
     return this.status
   }
 
   public stop(): boolean {
-    this.status = "unknown"
+    let killed = false
+
     if (this.process) {
-      return this.process.kill()
+      killed = this.process.kill()
     }
 
-    if (this.items.length > 0) {
+    if (!killed && this.items.length > 0) {
       return this.items.map(item => item.stop()).reduce((acc, success) => acc && success, true)
     }
 
-    return false
+    if (this.isComposite) {
+      iterableForEach(item => item.status = "unknown", this, test => test.isComposite || finalStates.includes(test.status))
+    } else {
+      this.status = "unknown"
+    }
+
+    return killed
   }
 
   public lookup(testId: string | null): TestItem | null {
@@ -142,7 +151,7 @@ export declare interface TestItem {
 
 export type TestItemEvent = "status"
 
-export type TestRunner = (item: TestItem) => OptionalPromiseLike<TestStatus>
+export type TestRunner = (item: TestItem, output?: OutputChannel) => OptionalPromiseLike<TestStatus>
 
 export type TestStatus = "passed"
   | "failed"

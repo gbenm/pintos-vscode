@@ -1,9 +1,17 @@
 import { join as joinPath } from "path"
 import { childProcessToPromise, spawnCommand } from "../launch"
-import { curry } from "../utils/fp/common"
-import { TestItem, TestStatus } from "./TestItem"
+import { OutputChannel } from "../types"
+import { curry, iterableForEach } from "../utils/fp/common"
+import { finalStates, TestItem, TestStatus } from "./TestItem"
 
-export async function runSpecificTest(item: TestItem): Promise<TestStatus> {
+export async function runSpecificTest(item: TestItem, output?: OutputChannel): Promise<TestStatus> {
+  if (item.isComposite) {
+    throw new Error("must be a file test")
+  }
+
+  output?.appendLine(`test ${item.id}`)
+  item.status = "started"
+
   const testProcess = spawnCommand({
     cwd: item.phase,
     cmd: "make",
@@ -13,9 +21,10 @@ export async function runSpecificTest(item: TestItem): Promise<TestStatus> {
   item.process = testProcess
 
   try {
-    const result = await childProcessToPromise({ process: testProcess })
+    const result = (await childProcessToPromise({ process: testProcess })).toString()
+    output?.appendLine(result)
 
-    const matches = result.toString().match(/^pass/mi)
+    const matches = result.match(/^pass/mi)
 
     if (matches) {
       return "passed"
@@ -27,19 +36,27 @@ export async function runSpecificTest(item: TestItem): Promise<TestStatus> {
   }
 }
 
-export async function runInnerTests(item: TestItem): Promise<TestStatus> {
-  const testResults = await Promise.all(item.items.map(runSpecificTest))
+export async function runInnerTests(item: TestItem, output?: OutputChannel): Promise<TestStatus> {
+  output?.appendLine(`test ${item.id}`)
+  iterableForEach(test => test.status = "queued", item, test => test.isComposite)
+
+  const testResults = await Promise.all(
+    Array.from(item, test => test.run(output))
+  )
+
   const allPassed = testResults.every(test => test === "passed")
 
   return allPassed ? "passed" : "failed"
 }
 
 
-export async function runPintosPhase(item: TestItem): Promise<TestStatus> {
-  item.status = "started"
+export async function runPintosPhase(item: TestItem, outputChannel?: OutputChannel): Promise<TestStatus> {
+  outputChannel?.appendLine(`test ${item.id}`)
+  iterableForEach(test => test.status = "queued", item, test => test.isComposite)
+
   const testProcess = spawnCommand({
     cmd: "make",
-    args: [item.phase],
+    args: ["grade"],
     cwd: item.phase
   })
 
@@ -48,8 +65,11 @@ export async function runPintosPhase(item: TestItem): Promise<TestStatus> {
       process: testProcess,
       onData(buffer: Buffer) {
         const partialResult = buffer.toString()
+        outputChannel?.append(partialResult)
+
         const passedTests = partialResult.match(/^pass.*/mig)?.map(extractTestName) || []
         const failedTests = partialResult.match(/^fail.*/mig)?.map(extractTestName) || []
+
         const setStatus = curry((status: TestStatus, testId: string | null): void => {
           if (!testId) {
             return
@@ -69,7 +89,8 @@ export async function runPintosPhase(item: TestItem): Promise<TestStatus> {
       }
     })
 
-    const finalStates: TestStatus[] = ["passed", "failed", "skipped", "errored"]
+    outputChannel?.appendLine("")
+
     for (let test of item) {
       if (test.isComposite) {
         continue

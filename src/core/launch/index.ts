@@ -57,19 +57,26 @@ export async function scopedCommand<T>({ cwd, execute, tempDir = false }: {
     throw e
   } finally {
     process.chdir(cwdBackup)
-    removeSync(dir)
+    if (tempDir) {
+      removeSync(dir)
+    }
   }
 }
 
-export function spawnCommand({ cmd, args, cwd }: {
+export function spawnCommand({ cmd, args, cwd, env = {} }: {
   cmd: string
   args: string[]
-  cwd?: string
+  cwd?: string,
+  env?: NodeJS.ProcessEnv
 }) {
   const child = spawn(cmd, args, {
     cwd,
     shell: false,
-    stdio: "pipe"
+    stdio: "pipe",
+    env: {
+      ...process.env,
+      ...env
+    }
   })
   return child
 }
@@ -88,6 +95,7 @@ export function childProcessToPromise({ process, onData }: {
   return new Promise((resolve, reject) => {
     if (onData) {
       process.stdout.on("data", onData)
+      process.stderr.on("data", onData)
       process.on("exit", resolve)
     } else {
       const result: Buffer[] = []

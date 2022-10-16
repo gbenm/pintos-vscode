@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync } from "fs"
 import path = require("path")
 import { ensureLookupTestsInPhase } from "../../core/grade/lookup"
 import { TestItem, TestStatus } from "../../core/grade/TestItem"
-import { generateTestId, isTest } from "../../core/grade/utils"
+import { generateTestId, isRootTest, isTest } from "../../core/grade/utils"
 import { scopedCommand } from "../../core/launch"
 import { prop } from "../../core/utils/fp/common"
 
@@ -81,14 +81,14 @@ suite("Test Items", () => {
       tempDir: true,
       async execute() {
         createTestsFiles([
-          "threads/build/tests/test1.o",
-          "threads/build/tests/test2.o",
-          "threads/build/tests/otherfile.d",
-          "threads/build/tests/nested/test1.o",
-          "threads/build/tests/nested/test2.o",
-          "threads/build/tests/nested/otherfile.d",
-          "userprog/build/tests/test1.o",
-          "userprog/build/tests/test2.o",
+          "threads/build/tests/threads/test1.o",
+          "threads/build/tests/threads/test2.o",
+          "threads/build/tests/threads/otherfile.d",
+          "threads/build/tests/threads/nested/test1.o",
+          "threads/build/tests/threads/nested/test2.o",
+          "threads/build/tests/threads/nested/otherfile.d",
+          "userprog/build/tests/userprog/test1.o",
+          "userprog/build/tests/userprog/test2.o",
         ])
 
         const path = "build/tests"
@@ -98,7 +98,8 @@ suite("Test Items", () => {
             throw new Error(`[Dev] ${path} is missing`)
           },
           generateId: generateTestId,
-          isTest
+          isTest,
+          isRootTest
         })
 
         const threadsTest = await getTestsFrom({
@@ -109,6 +110,7 @@ suite("Test Items", () => {
         assert.deepEqual(
           Array.from(threadsTest, prop("id")).sort(),
           [
+            "tests",
             "tests/threads",
             "tests/threads/test1",
             "tests/threads/test2",
@@ -126,6 +128,7 @@ suite("Test Items", () => {
         assert.deepEqual(
           Array.from(userprogTest, prop("id")).sort(),
           [
+            "tests",
             "tests/userprog",
             "tests/userprog/test1",
             "tests/userprog/test2",

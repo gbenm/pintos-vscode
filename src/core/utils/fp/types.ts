@@ -2,6 +2,7 @@ export type LastFn<T> = T extends [...((...v: any[]) => any)[], infer U extends 
 export type ObjectWith<T extends string | symbol | number> = {
   [k in T]: unknown
 }
+export type FilterFn<T, I> = (item: T, index: I) => boolean
 export type First<AofT> = AofT extends [infer F, ...any[]] ? F : never
 export type WithoutFirst<AofT> = AofT extends [any, ...(infer Rest extends Array<any>)] ? Rest : never
 export type RestOfA<AofT, Taken extends any[]> = AofT extends [...Taken, ...(infer Rest extends Array<any>)] ? Rest : never

@@ -1,14 +1,15 @@
 import { Dirent, existsSync, readdirSync } from "fs"
 import { join as joinPath, parse as parsePath } from "path"
 import { scopedCommand } from "../launch"
-import { notNull } from "../utils/fp/common"
+import { filtersAnd, notNull } from "../utils/fp/common"
 import { runInnerTests, runPintosPhase, runSpecificTest } from "./run"
 import { TestItem } from "./TestItem"
 
-export async function ensureLookupTestsInPhase({ onMissingLocation, generateId, isTest }: {
+export async function ensureLookupTestsInPhase({ onMissingLocation, generateId, isTest, isRootTest = () => true }: {
   onMissingLocation: (location: LookupLocation) => void
   generateId: TestIdGen
   isTest: IsTestChecker
+  isRootTest?: IsTestChecker
 }, location: LookupLocation): Promise<TestItem> {
   return await scopedCommand({
     cwd: location.phase,
@@ -23,15 +24,11 @@ export async function ensureLookupTestsInPhase({ onMissingLocation, generateId, 
       const baseId = generateId({
         baseId: null,
         phase,
-        segment: generateId({
-          baseId: "tests",
-          segment: phase,
-          phase
-        })
+        segment: "tests"
       })
 
       const dirents = readdirSync(path, { withFileTypes: true })
-      const items = <TestItem[]> dirents.filter(isTest).map(dirent => lookupTests({
+      const items = <TestItem[]> dirents.filter(filtersAnd(isTest, isRootTest)).map(dirent => lookupTests({
         dirent,
         baseId,
         phase,

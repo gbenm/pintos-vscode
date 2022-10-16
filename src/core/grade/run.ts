@@ -1,5 +1,6 @@
 import { join as joinPath } from "path"
 import { childProcessToPromise, spawnCommand } from "../launch"
+import { curry } from "../utils/fp/common"
 import { TestItem, TestStatus } from "./TestItem"
 
 export async function runSpecificTest(item: TestItem): Promise<TestStatus> {
@@ -34,30 +35,55 @@ export async function runInnerTests(item: TestItem): Promise<TestStatus> {
 }
 
 
-export function runPintosPhase(item: TestItem): TestStatus {
+export async function runPintosPhase(item: TestItem): Promise<TestStatus> {
   item.status = "started"
-  const childProcess = spawnCommand({
+  const testProcess = spawnCommand({
     cmd: "make",
     args: [item.phase],
     cwd: item.phase
   })
 
-  childProcess.stdout.on("data", (buffer: Buffer) => {
-    const partialResult = buffer.toString()
-    const passedTests = partialResult.match(/^pass.*/mig)?.map(extractTestName) || []
-    const failedTests = partialResult.match(/^fail.*/mig)?.map(extractTestName) || []
+  try {
+    await childProcessToPromise({
+      process: testProcess,
+      onData(buffer: Buffer) {
+        const partialResult = buffer.toString()
+        const passedTests = partialResult.match(/^pass.*/mig)?.map(extractTestName) || []
+        const failedTests = partialResult.match(/^fail.*/mig)?.map(extractTestName) || []
+        const setStatus = curry((status: TestStatus, testId: string | null): void => {
+          if (!testId) {
+            return
+          }
 
-    passedTests.forEach((test) => {
-      // TODO: find the test and change the status
+          const test = item.lookup(testId)
+
+          if (test) {
+            test.status = status
+          }
+
+          throw new Error(`${testId} not found in TestItems`)
+        })
+
+        passedTests.forEach(setStatus("passed"))
+        failedTests.forEach(setStatus("failed"))
+      }
     })
-    // TODO: do the same for failed Tests
-  })
 
-  childProcess.on("exit", () => {
-    // TODO: set the rest of test to "errored"
-  })
+    const finalStates: TestStatus[] = ["passed", "failed", "skipped", "errored"]
+    for (let test of item) {
+      if (test.isComposite) {
+        continue
+      }
 
-  throw new Error("not implemented")
+      if (!finalStates.includes(test.status)) {
+        test.status = "errored"
+      }
+    }
+
+    return item.status
+  } catch {
+    return "errored"
+  }
 }
 
 function extractTestName(match: string): string | null {

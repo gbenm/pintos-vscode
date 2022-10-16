@@ -1,4 +1,4 @@
-import { EventEmitter } from "stream"
+import { EventEmitter } from "node:events"
 import { OptionalPromiseLike } from "../types"
 import { prop } from "../utils/fp/common"
 
@@ -65,7 +65,10 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 
   private onChangeChildStatus (item: TestItem) {
     this.emit("status", item)
-    this.emit("status", this)
+
+    if (this.items.includes(item)) {
+      this.emit("status", this)
+    }
   }
 
   public async run(): Promise<TestStatus> {

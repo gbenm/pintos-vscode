@@ -207,11 +207,9 @@ suite("Test Items", () => {
         { id: "5", status: "queued" },
         { id: "1", status: "queued" },
 
-
         { id: "3", status: "started" },
         { id: "2", status: "started" },
         { id: "1", status: "started" },
-
         { id: "3", status: "passed" },
         { id: "2", status: "queued" },
         { id: "1", status: "queued" },
@@ -219,14 +217,12 @@ suite("Test Items", () => {
         { id: "4", status: "started" },
         { id: "2", status: "started" },
         { id: "1", status: "started" },
-
         { id: "4", status: "failed" },
         { id: "2", status: "failed" },
         { id: "1", status: "queued" },
 
         { id: "5", status: "started" },
         { id: "1", status: "started" },
-
         { id: "5", status: "errored" },
         { id: "1", status: "failed" },
       ]

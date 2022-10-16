@@ -1,3 +1,4 @@
+import { ChildProcessWithoutNullStreams } from "node:child_process"
 import { EventEmitter } from "node:events"
 import { OptionalPromiseLike } from "../types"
 import { prop } from "../utils/fp/common"
@@ -30,6 +31,17 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 
   public get isComposite () {
     return this.items.length > 0
+  }
+
+  private _process?: ChildProcessWithoutNullStreams
+
+  public get process () {
+    return this._process
+  }
+
+  public set process (process) {
+    this.process?.kill()
+    this._process = process
   }
 
   constructor (test: {
@@ -84,6 +96,11 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
   public async run(): Promise<TestStatus> {
     this.status = await this._run(this)
     return this.status
+  }
+
+  public stop() {
+    this.status = "unknown"
+    return this.process?.kill() || false
   }
 
   public lookup(testId: string | null): TestItem | null {

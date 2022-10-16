@@ -4,13 +4,13 @@ import path = require("path")
 import { ensureLookupTestsInPhase } from "../../core/grade/lookup"
 import { TestItem, TestStatus } from "../../core/grade/TestItem"
 import { generateTestId, isTest } from "../../core/grade/utils"
-import { executeCommand, scopedCommand } from "../../core/launch"
+import { scopedCommand } from "../../core/launch"
 import { prop } from "../../core/utils/fp/common"
+
+const run = () => <TestStatus> "passed"
 
 suite("Test Items", () => {
   test("get all tests ids", () => {
-    const run = () => <TestStatus> "passed"
-
     const mainTest = new TestItem({
       id: "tests/threads",
       basePath: "build/tests/threads",
@@ -134,6 +134,106 @@ suite("Test Items", () => {
       },
     })
   })
+
+  suite("subscribe to test status", () => {
+    test("listen status changes", () => {
+      const statusHistory: string[] = []
+
+      const testItem3 = testItemFactory({
+        id: "3",
+        items: []
+      })
+      const testItem4 = testItemFactory({
+        id: "4",
+        items: []
+      })
+      const mainTest = testItemFactory({
+        id: "1",
+        items: [
+          testItemFactory({
+            id: "2",
+            items: [testItem3]
+          }),
+          testItem4
+        ]
+      })
+
+      mainTest.on("status", test => statusHistory.push(test.id))
+
+      testItem3.status = "passed"
+      testItem4.status = "passed"
+
+      assert.deepEqual(statusHistory, ["3", "2", "1", "4", "1"])
+    })
+
+    test("merge status", () => {
+      const statusHistory: Array<{ status: TestStatus, id: string }> = []
+      const test3 = testItemFactory({ id: "3", })
+      const test4 = testItemFactory({ id: "4" })
+      const test5 = testItemFactory({ id: "5" })
+      const mainTest = testItemFactory({
+        id: "1",
+        items: [
+          testItemFactory({
+            id: "2",
+            items: [test3, test4]
+          }),
+          test5
+        ]
+      })
+
+      mainTest.on("status", ({ id, status }) => statusHistory.push({ id, status }))
+
+      test3.status = "queued"
+      test4.status = "queued"
+      test5.status = "queued"
+
+      test3.status = "started"
+      test3.status = "passed"
+
+      test4.status = "started"
+      test4.status = "failed"
+
+      test5.status = "started"
+      test5.status = "errored"
+
+      const expectedHistory: typeof statusHistory = [
+        { id: "3", status: "queued" },
+        { id: "2", status: "queued" },
+        { id: "1", status: "queued" },
+        { id: "4", status: "queued" },
+        { id: "2", status: "queued" },
+        { id: "1", status: "queued" },
+        { id: "5", status: "queued" },
+        { id: "1", status: "queued" },
+
+
+        { id: "3", status: "started" },
+        { id: "2", status: "started" },
+        { id: "1", status: "started" },
+
+        { id: "3", status: "passed" },
+        { id: "2", status: "queued" },
+        { id: "1", status: "queued" },
+
+        { id: "4", status: "started" },
+        { id: "2", status: "started" },
+        { id: "1", status: "started" },
+
+        { id: "4", status: "failed" },
+        { id: "2", status: "failed" },
+        { id: "1", status: "queued" },
+
+        { id: "5", status: "started" },
+        { id: "1", status: "started" },
+
+        { id: "5", status: "errored" },
+        { id: "1", status: "failed" },
+      ]
+
+      assert.deepEqual(statusHistory, expectedHistory)
+    })
+  })
 })
 
 function createTestsFiles (files: string[]) {
@@ -144,5 +244,16 @@ function createTestsFiles (files: string[]) {
     }
 
     writeFileSync(file, "temp file")
+  })
+}
+
+function testItemFactory ({ id, items = [] }: { id: string, items?: TestItem[] }) {
+  return new TestItem({
+    id,
+    items,
+    name: "1",
+    basePath: "fake/path",
+    phase: "fake",
+    run
   })
 }

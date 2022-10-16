@@ -60,6 +60,8 @@ export async function runPintosPhase(item: TestItem, outputChannel?: OutputChann
     cwd: item.phase
   })
 
+  item.process = testProcess
+
   try {
     await childProcessToPromise({
       process: testProcess,

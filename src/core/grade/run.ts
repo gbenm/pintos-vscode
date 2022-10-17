@@ -50,8 +50,8 @@ export async function runInnerTests(item: TestItem, output?: OutputChannel): Pro
 }
 
 
-export async function runPintosPhase(item: TestItem, outputChannel?: OutputChannel): Promise<TestStatus> {
-  outputChannel?.appendLine(`test ${item.id}`)
+export async function runPintosPhase(item: TestItem, output?: OutputChannel): Promise<TestStatus> {
+  output?.appendLine(`test ${item.id}`)
   iterableForEach(test => test.status = "queued", item, test => test.isComposite)
 
   const testProcess = spawnCommand({
@@ -67,7 +67,7 @@ export async function runPintosPhase(item: TestItem, outputChannel?: OutputChann
       process: testProcess,
       onData(buffer: Buffer) {
         const partialResult = buffer.toString()
-        outputChannel?.append(partialResult)
+        output?.append(partialResult)
 
         const passedTests = partialResult.match(/^pass.*/mig)?.map(extractTestName) || []
         const failedTests = partialResult.match(/^fail.*/mig)?.map(extractTestName) || []
@@ -79,7 +79,7 @@ export async function runPintosPhase(item: TestItem, outputChannel?: OutputChann
 
           const test = item.lookup(testId)
 
-          if (test) {
+          if (test && !test.isComposite) {
             test.status = status
           }
 
@@ -91,17 +91,10 @@ export async function runPintosPhase(item: TestItem, outputChannel?: OutputChann
       }
     })
 
-    outputChannel?.appendLine("")
+    output?.appendLine("")
+    output?.appendLine(`exit with code ${testProcess.exitCode}`)
 
-    for (let test of item) {
-      if (test.isComposite) {
-        continue
-      }
-
-      if (!finalStates.includes(test.status)) {
-        test.status = "errored"
-      }
-    }
+    iterableForEach(test => test.status = "errored", item, test => test.isComposite || finalStates.includes(test.status))
 
     return item.status
   } catch {

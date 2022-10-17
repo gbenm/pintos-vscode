@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events"
 import { OptionalPromiseLike, OutputChannel } from "../types"
 import { iterableForEach, prop } from "../utils/fp/common"
 
-export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skipped"]
+export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skipped", "unknown"]
 
 export class TestItem extends EventEmitter implements Iterable<TestItem> {
   public readonly id: string
@@ -25,7 +25,7 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 
   public set status (value: TestStatus) {
     if (this.isComposite) {
-      throw new TestItemStatusFreezeError(`can't change the status of composite ${this.id}`)
+      throw new TestItemStatusFreezeError(`can't change the status of composite (${this.id})`)
     }
     this._status = value
     this.emit("status", this)
@@ -74,7 +74,7 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
   }
 
   private statusBaseOnChildren () {
-    const currentStatus = this.items.map(prop("status")).reduce((currentStatus, itemStatus) => {
+    const status = this.items.map(prop("status")).reduce((currentStatus, itemStatus) => {
       const loadingStatus: TestStatus[] = ["queued", "started"]
       if (currentStatus === "started") {
         return "started"
@@ -92,23 +92,22 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
       return itemStatus
     }, "unknown")
 
-    return currentStatus
+    return status
   }
 
   public async run(output?: OutputChannel): Promise<TestStatus> {
-    this.status = await this._run(this, output)
-    return this.status
+    return await this._run(this, output)
   }
 
-  public stop(): boolean {
+  public stop(signal: NodeJS.Signals = "SIGTERM"): boolean {
     let killed = false
 
     if (this.process) {
-      killed = this.process.kill()
+      killed = this.process.kill(signal)
     }
 
     if (!killed && this.items.length > 0) {
-      return this.items.map(item => item.stop()).reduce((acc, success) => acc && success, true)
+      return this.items.map(item => item.stop(signal)).reduce((acc, success) => acc && success, true)
     }
 
     if (this.isComposite) {

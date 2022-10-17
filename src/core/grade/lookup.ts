@@ -59,14 +59,14 @@ export function ensureLookupTestsInPhase({ onMissingLocation, onMissingDiscoverM
   })
 }
 
-export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, parentTestRun, elseItems }: {
+export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, parentTestRun, elseChildren }: {
   tree: TestTree | null
   phase: string
   testId: string
   getDirOf: TestDirLocator
   getNameOf: (id: string) => string
   parentTestRun?: TestRunner
-  elseItems?: TestItem[]
+  elseChildren?: TestItem[]
 }): TestItem {
   if (tree === null) {
     return new TestItem({
@@ -74,7 +74,7 @@ export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, pare
       basePath: getDirOf(testId),
       name: getNameOf(testId),
       phase,
-      children: elseItems || [],
+      children: elseChildren || [],
       run: parentTestRun || runSpecificTest
     })
   }
@@ -97,7 +97,7 @@ export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, pare
     getNameOf,
     phase,
     testId,
-    elseItems: children,
+    elseChildren: children,
     parentTestRun: parentTestRun || runInnerTests
   })
 }

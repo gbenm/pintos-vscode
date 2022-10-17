@@ -74,7 +74,7 @@ export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, pare
       basePath: getDirOf(testId),
       name: getNameOf(testId),
       phase,
-      items: elseItems || [],
+      children: elseItems || [],
       run: parentTestRun || runSpecificTest
     })
   }

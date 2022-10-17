@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import * as assert from "assert"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
-import { ensureLookupTestsInPhase, getTestsFromMakefile, genDiscoverMakefileContent, generateTestTree } from "../../core/grade/lookup"
-import { TestItem, TestStatus } from "../../core/grade/TestItem"
+import { ensureLookupTestsInPhase, getTestsFromMakefile, genDiscoverMakefileContent, generateTestTree, TestTree } from "../../core/grade/lookup"
+import { TestItem, TestItemMapper, TestStatus } from "../../core/grade/TestItem"
 import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, splitTestId } from "../../core/grade/utils"
 import { scopedCommand } from "../../core/launch"
 import { prop } from "../../core/utils/fp/common"
@@ -14,11 +14,11 @@ suite("Test Items", () => {
     const mainTest = new TestItem({
       id: "tests/threads",
       basePath: "build/tests/threads",
-      items: [
+      children: [
         new TestItem({
           id: "tests/threads/test1",
           basePath: "build/tests/threads",
-          items: [],
+          children: [],
           name: "test1",
           phase: "threads",
           run
@@ -26,11 +26,11 @@ suite("Test Items", () => {
         new TestItem({
           id: "tests/threads/nested",
           basePath: "build/tests/threads",
-          items: [
+          children: [
             new TestItem({
               id: "tests/threads/nested/test1",
               basePath: "build/tests/threads/nested",
-              items: [],
+              children: [],
               name: "test1",
               phase: "threads",
               run
@@ -38,7 +38,7 @@ suite("Test Items", () => {
             new TestItem({
               id: "tests/threads/nested/test2",
               basePath: "build/tests/threads/nested",
-              items: [],
+              children: [],
               name: "test2",
               phase: "threads",
               run
@@ -51,7 +51,7 @@ suite("Test Items", () => {
         new TestItem({
           id: "tests/threads/test2",
           basePath: "build/tests/threads",
-          items: [],
+          children: [],
           name: "test2",
           phase: "threads",
           run
@@ -213,35 +213,54 @@ suite("Test Items", () => {
           path
         })
 
-        assert.deepEqual(
-          Array.from(threadsTest, prop("id")).sort(),
-          [
-            "tests",
-            "tests/threads",
-            "tests/threads/test1",
-            "tests/threads/test2",
-            "tests/threads/test3"
-          ].sort()
-        )
+        const toTestTree = TestItem.createMapper<TestTree>((item, fn) => {
+          if (item.isComposite) {
+            return {
+              [item.id]: item.children.map(item => item.map(fn))
+                .reduce((acc, entry: TestTree) => {
+                  return { ...acc, ...entry }
+                })
+            }
+          }
+
+          return { [item.id]: null }
+        })
+
+        const threadsTestTree = threadsTest.map(toTestTree)
+
+        assert.deepStrictEqual(threadsTestTree, {
+          tests: {
+            "tests/threads": {
+              "tests/threads/test1": null,
+              "tests/threads/test2": null,
+              "tests/threads/test3": null
+            }
+          }
+        })
 
         const userprogTest = await getTestsFrom({
           phase: "userprog",
           path
         })
 
+        const userprogTestTree = userprogTest.map(toTestTree)
+
         assert.deepEqual(
-          Array.from(userprogTest, prop("id")).sort(),
-          [
-            "tests",
-            "tests/threads",
-            "tests/threads/test1",
-            "tests/threads/test2",
-            "tests/threads/test1-extra",
-            "tests/userprog",
-            "tests/userprog/test1",
-            "tests/userprog/test1-extra",
-            "tests/userprog/test2-extra"
-          ].sort()
+          userprogTestTree,
+          {
+            tests: {
+              "tests/threads": {
+                "tests/threads/test1": null,
+                "tests/threads/test2": null,
+                "tests/threads/test1-extra": null,
+              },
+              "tests/userprog": {
+                "tests/userprog/test1": null,
+                "tests/userprog/test1-extra": null,
+                "tests/userprog/test2-extra": null
+              },
+            }
+          }
         )
       },
     })
@@ -253,18 +272,18 @@ suite("Test Items", () => {
 
       const testItem3 = testItemFactory({
         id: "3",
-        items: []
+        children: []
       })
       const testItem4 = testItemFactory({
         id: "4",
-        items: []
+        children: []
       })
       const mainTest = testItemFactory({
         id: "1",
-        items: [
+        children: [
           testItemFactory({
             id: "2",
-            items: [testItem3]
+            children: [testItem3]
           }),
           testItem4
         ]
@@ -285,10 +304,10 @@ suite("Test Items", () => {
       const test5 = testItemFactory({ id: "5" })
       const mainTest = testItemFactory({
         id: "1",
-        items: [
+        children: [
           testItemFactory({
             id: "2",
-            items: [test3, test4]
+            children: [test3, test4]
           }),
           test5
         ]
@@ -345,7 +364,7 @@ suite("Test Items", () => {
 })
 
 
-function createTestTree (testTree: Partial<TestTree>) {
+function createTestTree (testTree: Partial<TestTreeDescriptor>) {
   const folders =  Object.keys(testTree).filter(entry => !Array.isArray(testTree[entry]))
   const makefiles = Object.keys(testTree).filter(entry => Array.isArray(testTree[entry]))
 
@@ -360,7 +379,7 @@ function createTestTree (testTree: Partial<TestTree>) {
 
     scopedCommand({
       cwd: folder,
-      execute: () => createTestTree(<TestTree> testTree[folder])
+      execute: () => createTestTree(<TestTreeDescriptor> testTree[folder])
     })
   })
 }
@@ -369,8 +388,8 @@ function createMakefileWithTests(vars: TestVarTreeEntry[]): string {
   return vars.map(entry => `${entry.variable} = ${entry.tests.join(" ")}`).join("\n").concat("\n")
 }
 
-type TestTree = {
-  [entry: string]: TestTree | TestVarTreeEntry[]
+type TestTreeDescriptor = {
+  [entry: string]: TestTreeDescriptor | TestVarTreeEntry[]
 }
 
 interface TestVarTreeEntry {
@@ -378,10 +397,10 @@ interface TestVarTreeEntry {
   tests: string[]
 }
 
-function testItemFactory ({ id, items = [] }: { id: string, items?: TestItem[] }) {
+function testItemFactory ({ id, children = [] }: { id: string, children?: TestItem[] }) {
   return new TestItem({
     id,
-    items,
+    children: children,
     name: "1",
     basePath: "fake/path",
     phase: "fake",

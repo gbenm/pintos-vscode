@@ -17,6 +17,5 @@ export const generateTestId: TestIdGen = ({ baseId, segment }) => {
 export const splitTestId: TestIdSplitter = (testId) => testId.split("/")
 
 export function onMissingDiscoverMakefile (discoverMakefileName: string) {
-  console.log(`Write makefile ${discoverMakefileName} in ${process.cwd()}`)
   writeFileSync(discoverMakefileName, genDiscoverMakefileContent())
 }

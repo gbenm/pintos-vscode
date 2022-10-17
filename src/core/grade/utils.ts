@@ -2,7 +2,7 @@ import { writeFileSync } from "fs"
 import { dirname, basename } from "path"
 import { genDiscoverMakefileContent, TestDirLocator, TestIdGen, TestIdSplitter } from "./lookup"
 
-export const getDirOfTest: TestDirLocator = dirname
+export const getDirOfTest: TestDirLocator = (testId) => `build/${dirname(testId)}`
 
 export const getNameOfTest: (testId: string) => string = basename
 

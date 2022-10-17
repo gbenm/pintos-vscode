@@ -1,5 +1,6 @@
 import { ChildProcessWithoutNullStreams } from "node:child_process"
 import { EventEmitter } from "node:events"
+import { join as joinPath, resolve as resolvePath } from "node:path"
 import { OptionalPromiseLike, OutputChannel } from "../types"
 import { iterableForEach, prop } from "../utils/fp/common"
 
@@ -11,6 +12,9 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
   public readonly phase: string
   public readonly name: string
   public readonly children: readonly TestItem[]
+
+  public readonly makefileTarget: string
+  public readonly resultFile: string
 
   private readonly _run: TestRunner
   private _status: TestStatus = "unknown"
@@ -53,6 +57,8 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     phase: string
     children: readonly TestItem[]
     run: TestRunner
+    makefileTarget?: string
+    resultFile?: string
   }) {
     super()
     this._run = test.run
@@ -61,6 +67,8 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     this.name = test.name
     this.children = test.children
     this.phase = test.phase
+    this.makefileTarget = test.makefileTarget || joinPath(test.basePath, test.name.concat(".result"))
+    this.resultFile = test.resultFile || resolvePath(this.makefileTarget)
 
     this.children.forEach(item => item.on("status", this.onChangeChildStatus.bind(this)))
   }

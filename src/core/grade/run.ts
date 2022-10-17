@@ -1,4 +1,4 @@
-import { join as joinPath } from "path"
+import { existsSync, readFileSync } from "fs"
 import { childProcessToPromise, spawnCommand } from "../launch"
 import { OutputChannel } from "../types"
 import { curry, iterableForEach } from "../utils/fp/common"
@@ -15,7 +15,7 @@ export async function runSpecificTest(item: TestItem, output?: OutputChannel): P
   const testProcess = spawnCommand({
     cwd: item.phase,
     cmd: "make",
-    args: [joinPath(item.basePath, item.name.concat(".result"))]
+    args: [item.makefileTarget]
   })
 
   item.process = testProcess
@@ -94,11 +94,26 @@ export async function runPintosPhase(item: TestItem, output?: OutputChannel): Pr
     output?.appendLine("")
     output?.appendLine(`exit with code ${testProcess.exitCode}`)
 
-    iterableForEach(test => test.status = "errored", item, test => test.isComposite || finalStates.includes(test.status))
+    iterableForEach(setStatusFromResultFile, item, test => test.isComposite || finalStates.includes(test.status))
 
     return item.status
   } catch {
     return "errored"
+  }
+}
+
+export function setStatusFromResultFile(test: TestItem) {
+  if (existsSync(test.resultFile)) {
+    const content = readFileSync(test.resultFile).toString()
+    const [_, pass, fail] = content.match(/(^pass)|(^fail)/mi) || []
+
+    if (pass) {
+      test.status = "passed"
+    } else if (fail) {
+      test.status = "failed"
+    } else {
+      test.status = "errored"
+    }
   }
 }
 

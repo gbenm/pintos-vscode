@@ -1,9 +1,9 @@
-import { Dirent, existsSync, readdirSync } from "fs"
-import { join as joinPath, parse as parsePath } from "path"
+import { Dirent, existsSync, readFileSync } from "fs"
+import { join as joinPath } from "path"
+import { tests } from "vscode"
 import { scopedCommand, executeCommand } from "../launch"
 import { OptionalPromiseLike } from "../types"
-import { filtersAnd, notNull } from "../utils/fp/common"
-import { runInnerTests, runPintosPhase, runSpecificTest } from "./run"
+import { runInnerTests, runPintosPhase, runSpecificTest, setStatusFromResultFile } from "./run"
 import { TestItem, TestRunner } from "./TestItem"
 
 const discoverMakefile = "vscTestDiscover.Makefile"
@@ -20,18 +20,18 @@ export function ensureLookupTestsInPhase({ onMissingLocation, onMissingDiscoverM
 
   return scopedCommand({
     cwd: phase,
-    async execute({ chdir }) {
+    async execute() {
       if (!existsSync(path)) {
         await onMissingLocation(location)
       }
 
-      chdir(path)
-
-      if (!existsSync(discoverMakefile)) {
-        await onMissingDiscoverMakefile(discoverMakefile, location)
+      const discoverMakefilePath = joinPath(path, discoverMakefile)
+      if (!existsSync(discoverMakefilePath)) {
+        await onMissingDiscoverMakefile(discoverMakefilePath, location)
       }
 
-      const testsIds = getTestsFromMakefile(discoverMakefile)
+      const testsIds = getTestsFromMakefile(discoverMakefile, path)
+
       const testTree = generateTestTree({
         ids: testsIds,
         generateId,
@@ -69,7 +69,7 @@ export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, pare
   elseChildren?: TestItem[]
 }): TestItem {
   if (tree === null) {
-    return new TestItem({
+    const test = new TestItem({
       id: testId,
       basePath: getDirOf(testId),
       name: getNameOf(testId),
@@ -77,6 +77,12 @@ export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, pare
       children: elseChildren || [],
       run: parentTestRun || runSpecificTest
     })
+
+    if (!test.isComposite) {
+      setStatusFromResultFile(test)
+    }
+
+    return test
   }
 
   const children = Object.keys(tree).map(id => testItemFactory({
@@ -147,8 +153,9 @@ export function generateTestTree({ ids, generateId, splitId, phase }: {
   return tree
 }
 
-export function getTestsFromMakefile(makefile: string) {
+export function getTestsFromMakefile(makefile: string, cwd?: string) {
   const result = executeCommand({
+    cwd,
     cmd: `make -f ${makefile} pintos-vscode-discover`
   }).toString()
 
@@ -174,7 +181,7 @@ export const genDiscoverMakefileContent = ({ parentMakefile = "./Makefile", extr
   extraTests?: string
 } = {}) => `include ${parentMakefile}
 
-SUFFIXES = %_TESTS %_EXTRA_GRADES ${extraTests}
+${"SUFFIXES = %_TESTS %_EXTRA_GRADES".concat(extraTests).trim()}
 
 pintos-vscode-discover:
     $(info BEGIN_TESTS)

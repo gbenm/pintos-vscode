@@ -42,7 +42,10 @@ function cmdToDisplay(cmd: string | string[]) {
 }
 
 export function scopedCommand<R>({ cwd, execute, tempDir = false }: {
-  execute: ({ chdir }: { chdir: (dir: string) => void }) => R,
+  execute: ({ chdir }: {
+    chdir: (dir: string) => void
+    resetCwd: () => void
+  }) => R,
   cwd: string
   tempDir?: boolean
 }): R  {
@@ -66,7 +69,8 @@ export function scopedCommand<R>({ cwd, execute, tempDir = false }: {
     process.chdir(dir)
 
     const result = execute({
-      chdir: process.chdir.bind(process)
+      chdir: process.chdir.bind(process),
+      resetCwd: () => process.chdir(dir)
     })
 
     if (isPromise(result)) {

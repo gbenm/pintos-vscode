@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import * as assert from "assert"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
-import path = require("path")
-import { ensureLookupTestsInPhase } from "../../core/grade/lookup"
+import { ensureLookupTestsInPhase, getTestsFromMakefile, genDiscoverMakefileContent, generateTestTree } from "../../core/grade/lookup"
 import { TestItem, TestStatus } from "../../core/grade/TestItem"
-import { generateTestId, isRootTest, isTest } from "../../core/grade/utils"
+import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, splitTestId } from "../../core/grade/utils"
 import { scopedCommand } from "../../core/launch"
 import { prop } from "../../core/utils/fp/common"
 
@@ -76,6 +75,86 @@ suite("Test Items", () => {
     )
   })
 
+  test("get tests ids from Makefile", () => {
+    scopedCommand({
+      cwd: ".testWorkspace",
+      tempDir: true,
+      execute () {
+        createTestTree({
+          Makefile: [
+            {
+              variable: "PRUEBA_TESTS",
+              tests: [
+                "tests/threads/test1",
+                "tests/threads/test2",
+                "tests/userprog/test1"
+              ]
+            },
+            {
+              variable: "PRUEBA_EXTRA_GRADES",
+              tests: [
+                "tests/userprog/test1-extra",
+                "tests/userprog/test2-extra",
+                "tests/threads/test1-extra"
+              ]
+            }
+          ]
+        })
+
+        writeFileSync("test.Makefile", genDiscoverMakefileContent())
+
+        const ids = getTestsFromMakefile("test.Makefile")
+
+        assert.deepEqual(
+          ids.sort(),
+          [
+            "tests/threads/test1",
+            "tests/threads/test2",
+            "tests/userprog/test1",
+            "tests/userprog/test1-extra",
+            "tests/userprog/test2-extra",
+            "tests/threads/test1-extra"
+          ].sort()
+        )
+      }
+    })
+  })
+
+  test("generate test tree from ids", () => {
+    const ids = [
+      "tests/threads/test1",
+      "tests/threads/test2",
+      "tests/userprog/test1",
+      "tests/userprog/test2",
+      "tests/userprog/base/test1",
+      "tests/userprog/base/test2"
+    ]
+
+    const tree = generateTestTree({
+      ids,
+      generateId: generateTestId,
+      phase: "fake",
+      splitId: splitTestId
+    })
+
+    assert.deepStrictEqual(tree, {
+      tests: {
+        "tests/threads": {
+          "tests/threads/test1": null,
+          "tests/threads/test2": null
+        },
+        "tests/userprog": {
+          "tests/userprog/test1": null,
+          "tests/userprog/test2": null,
+          "tests/userprog/base": {
+            "tests/userprog/base/test1": null,
+            "tests/userprog/base/test2": null
+          }
+        }
+      }
+    })
+  })
+
   test("discover tests", async () => {
     await scopedCommand({
       cwd: ".testWorkspace",
@@ -85,7 +164,7 @@ suite("Test Items", () => {
           "threads/build": {
             Makefile: [
               {
-                variable: "PRUEBA_TEST",
+                variable: "PRUEBA_TESTS",
                 tests: [
                   "tests/threads/test1",
                   "tests/threads/test2",
@@ -97,7 +176,7 @@ suite("Test Items", () => {
           "userprog/build": {
             Makefile: [
               {
-                variable: "PRUEBA_TEST",
+                variable: "PRUEBA_TESTS",
                 tests: [
                   "tests/threads/test1",
                   "tests/threads/test2",
@@ -123,8 +202,10 @@ suite("Test Items", () => {
             throw new Error(`[Dev] ${path} is missing`)
           },
           generateId: generateTestId,
-          isTest,
-          isRootTest
+          getDirOf: getDirOfTest,
+          getNameOf: getNameOfTest,
+          splitId: splitTestId,
+          onMissingDiscoverMakefile
         })
 
         const threadsTest = await getTestsFrom({

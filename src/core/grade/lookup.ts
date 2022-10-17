@@ -1,106 +1,203 @@
 import { Dirent, existsSync, readdirSync } from "fs"
 import { join as joinPath, parse as parsePath } from "path"
-import { scopedCommand } from "../launch"
+import { scopedCommand, executeCommand } from "../launch"
+import { OptionalPromiseLike } from "../types"
 import { filtersAnd, notNull } from "../utils/fp/common"
 import { runInnerTests, runPintosPhase, runSpecificTest } from "./run"
-import { TestItem } from "./TestItem"
+import { TestItem, TestRunner } from "./TestItem"
 
-export async function ensureLookupTestsInPhase({ onMissingLocation, generateId, isTest, isRootTest = () => true }: {
-  onMissingLocation: (location: LookupLocation) => void
+const discoverMakefile = "vscTestDiscover.Makefile"
+
+export function ensureLookupTestsInPhase({ onMissingLocation, onMissingDiscoverMakefile, splitId, generateId, getNameOf, getDirOf }: {
+  onMissingLocation: (location: LookupLocation) => OptionalPromiseLike<void>
+  onMissingDiscoverMakefile: (discoverMakefileName: string, location: LookupLocation) => OptionalPromiseLike<void>
+  getDirOf: TestDirLocator
+  getNameOf: (id: string) => string
+  splitId: TestIdSplitter
   generateId: TestIdGen
-  isTest: IsTestChecker
-  isRootTest?: IsTestChecker
 }, location: LookupLocation): Promise<TestItem> {
-  return await scopedCommand({
-    cwd: location.phase,
-    execute() {
-      const phase = location.phase
-      const path = location.path
+  const { path, phase } = location
 
+  return scopedCommand({
+    cwd: phase,
+    async execute({ chdir }) {
       if (!existsSync(path)) {
-        onMissingLocation(location)
+        await onMissingLocation(location)
       }
 
-      const baseId = generateId({
-        baseId: null,
-        phase,
-        segment: "tests"
-      })
+      chdir(path)
 
-      const dirents = readdirSync(path, { withFileTypes: true })
-      const items = <TestItem[]> dirents.filter(filtersAnd(isTest, isRootTest)).map(dirent => lookupTests({
-        dirent,
-        baseId,
-        phase,
-        basePath: location.path,
+      if (!existsSync(discoverMakefile)) {
+        await onMissingDiscoverMakefile(discoverMakefile, location)
+      }
+
+      const testsIds = getTestsFromMakefile(discoverMakefile)
+      const testTree = generateTestTree({
+        ids: testsIds,
         generateId,
-        isTest
-      })).filter(notNull)
-
-      return new TestItem({
-        id: baseId,
-        basePath: "",
-        name: phase,
-        phase,
-        items,
-        run: runPintosPhase
+        splitId,
+        phase
       })
-    }
+
+      const [mainTestId, ...rest] = Object.keys(testTree)
+
+      if (rest.length > 0) {
+        throw new Error(`The "${phase}" phase must have only one main test`)
+      }
+
+      const tree = testTree[mainTestId]
+
+      return testItemFactory({
+        tree,
+        getDirOf: getDirOf,
+        getNameOf,
+        phase,
+        testId: mainTestId,
+        parentTestRun: runPintosPhase
+      })
+    },
   })
 }
 
-export function lookupTests({ dirent, baseId, basePath, phase, generateId, isTest }: {
-  dirent: Dirent
-  basePath: string
-  baseId: string
+export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, parentTestRun, elseItems }: {
+  tree: TestTree | null
   phase: string
-  generateId: TestIdGen
-  isTest: IsTestChecker
-}): TestItem | null {
-  const { name } = parsePath(dirent.name)
-  const testId = generateId({
-    baseId,
-    phase,
-    segment: dirent.isDirectory() ? dirent.name : name
-  })
-
-  if (dirent.isFile()) {
+  testId: string
+  getDirOf: TestDirLocator
+  getNameOf: (id: string) => string
+  parentTestRun?: TestRunner
+  elseItems?: TestItem[]
+}): TestItem {
+  if (tree === null) {
     return new TestItem({
       id: testId,
-      basePath,
+      basePath: getDirOf(testId),
+      name: getNameOf(testId),
       phase,
-      name,
-      items: [],
-      run: runSpecificTest
+      items: elseItems || [],
+      run: parentTestRun || runSpecificTest
     })
   }
 
-  const dir = joinPath(basePath, dirent.name)
-  const dirents = readdirSync(dir, { withFileTypes: true })
-  const items = <TestItem[]> dirents
-    .filter(isTest)
-    .map((dirent => lookupTests({ dirent, baseId: testId, phase, isTest, generateId, basePath: dir })))
-    .filter(notNull)
+  const children = Object.keys(tree).map(id => testItemFactory({
+    testId: id,
+    getDirOf: getDirOf,
+    getNameOf,
+    phase,
+    tree: tree[id],
+  }))
 
-  if (items.length === 0) {
-    return null
+  if (children.length === 0) {
+    throw new Error("has not element but isn't a terminal test")
   }
 
-  return new TestItem({
-    id: testId,
-    basePath,
-    name,
-    items,
+  return testItemFactory({
+    tree: null,
+    getDirOf,
+    getNameOf,
     phase,
-    run: runInnerTests
+    testId,
+    elseItems: children,
+    parentTestRun: parentTestRun || runInnerTests
   })
 }
+
+export function generateTestTree({ ids, generateId, splitId, phase }: {
+  ids: string[]
+  phase: string
+  generateId: TestIdGen
+  splitId: TestIdSplitter
+}): TestTree {
+  const tree: TestTree = {}
+
+  ids.map((id) => {
+    const testWithParents = <string[]> splitId(id).map(
+      (_, i, segments: Array<string | null>) => segments.slice(0, i + 1)
+        .reduce(
+          (baseId, segment) => generateId({ baseId, segment: segment!, phase }),
+          null,
+        )
+    )
+
+    return {
+      parents: testWithParents.slice(0, testWithParents.length - 1),
+      test: testWithParents.slice(-1)[0]
+    }
+  }).forEach(({ test, parents }) => {
+    let subtree: TestTree = {}
+    const [firstParent, ...rest] = parents
+
+    if (tree[firstParent]) {
+      subtree = <TestTree> tree[firstParent]
+    } else {
+      tree[firstParent] = subtree
+    }
+
+    rest.forEach((parent) => {
+      if (!subtree[parent]) {
+        subtree[parent] = {}
+      }
+
+      subtree = <TestTree> subtree[parent]
+    })
+
+    subtree[test] = null
+  })
+
+  return tree
+}
+
+export function getTestsFromMakefile(makefile: string) {
+  const result = executeCommand({
+    cmd: `make -f ${makefile} pintos-vscode-discover`
+  }).toString()
+
+  let inScope = false
+  const testids = result.split("\n").filter((chunk) => {
+    let keepLine = inScope
+    const line = chunk.trim()
+    if (line === "BEGIN_TESTS") {
+      inScope = true
+    } else if (line === "END_TESTS") {
+      inScope = false
+      keepLine = false
+    }
+
+    return keepLine
+  }).flatMap(line => line.split(/\s+/))
+
+  return testids
+}
+
+export const genDiscoverMakefileContent = ({ parentMakefile = "./Makefile", extraTests = "" }: {
+  parentMakefile?: string
+  extraTests?: string
+} = {}) => `include ${parentMakefile}
+
+SUFFIXES = %_TESTS %_EXTRA_GRADES ${extraTests}
+
+pintos-vscode-discover:
+    $(info BEGIN_TESTS)
+    $(foreach v,\\
+        $(filter $(SUFFIXES), $(.VARIABLES)),\\
+        $(info $($(v)))\\
+    )
+    $(info END_TESTS)
+`
 
 export interface LookupLocation {
   phase: string
   path: string
 }
 
+export interface TestTree {
+  [parentId: string]: TestTree | null
+}
+
 export type TestIdGen = (args: { phase: string, baseId: string | null, segment: string }) => string
 
 export type IsTestChecker = (dirent: Dirent) => boolean
+
+export type TestIdSplitter = (testId: string) => Array<string>
+
+export type TestDirLocator = (testId: string) => string

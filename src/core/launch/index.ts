@@ -1,10 +1,12 @@
 import { ChildProcessWithoutNullStreams, execSync, spawn } from "node:child_process"
 import { ensureSingleValue } from "../utils/fp/arrays"
-import { OptionalPromiseLike, OutputChannel } from "../types"
+import { OptionalPromise, OptionalPromiseLike, OutputChannel } from "../types"
 import { buildSingleCommand } from "./utils"
 import { existsSync, mkdir, mkdirSync } from "node:fs"
 import { resolve as resolvePath } from "node:path"
 import { removeSync } from "fs-extra"
+import { isPromise } from "node:util/types"
+import { conditionalExecute } from "../utils"
 
 export function executeCommand({ output, cmd, cwd = process.cwd() }: {
   output?: OutputChannel
@@ -39,27 +41,49 @@ function cmdToDisplay(cmd: string | string[]) {
   return `\t${cmd}\n`
 }
 
-export async function scopedCommand<T>({ cwd, execute, tempDir = false }: {
-  execute: () => OptionalPromiseLike<T>,
+export function scopedCommand<R>({ cwd, execute, tempDir = false }: {
+  execute: ({ chdir }: { chdir: (dir: string) => void }) => R,
   cwd: string
   tempDir?: boolean
-}): Promise<T> {
+}): R  {
   const cwdBackup = process.cwd()
   const dir = resolvePath(cwd)
+
+  const restore = () => {
+    process.chdir(cwdBackup)
+    if (tempDir) {
+      removeSync(dir)
+    }
+  }
+
+  let skipRestoreSync = false
+
   try {
     if (tempDir && !existsSync(dir)) {
       mkdirSync(dir, { recursive: true })
     }
 
     process.chdir(dir)
-    return await execute()
+
+    const result = execute({
+      chdir: process.chdir.bind(process)
+    })
+
+    if (isPromise(result)) {
+      skipRestoreSync = true
+      return <any> result.finally(restore)
+    } else if (typeof (<any> result)?.["then"] === "function") {
+      throw new Error("PromiseLike is not supported. Only Promise is supported")
+    }
+
+    return result
   } catch (e) {
     throw e
   } finally {
-    process.chdir(cwdBackup)
-    if (tempDir) {
-      removeSync(dir)
-    }
+    conditionalExecute({
+      condition: !skipRestoreSync,
+      execute: restore
+    })
   }
 }
 

@@ -1,15 +1,10 @@
-import { extname } from "path"
-import { IsTestChecker, TestIdGen } from "./lookup"
+import { writeFileSync } from "fs"
+import { dirname, basename } from "path"
+import { genDiscoverMakefileContent, TestDirLocator, TestIdGen, TestIdSplitter } from "./lookup"
 
-export const isTest: IsTestChecker = dirent => {
-  if (dirent.isFile() && extname(dirent.name) === ".o") {
-    return true
-  }
+export const getDirOfTest: TestDirLocator = dirname
 
-  return dirent.isDirectory()
-}
-
-export const isRootTest: IsTestChecker = dirent => dirent.isDirectory()
+export const getNameOfTest: (testId: string) => string = basename
 
 export const generateTestId: TestIdGen = ({ baseId, segment }) => {
   if (baseId) {
@@ -17,4 +12,11 @@ export const generateTestId: TestIdGen = ({ baseId, segment }) => {
   }
 
   return segment
+}
+
+export const splitTestId: TestIdSplitter = (testId) => testId.split("/")
+
+export function onMissingDiscoverMakefile (discoverMakefileName: string) {
+  console.log(`Write makefile ${discoverMakefileName} in ${process.cwd()}`)
+  writeFileSync(discoverMakefileName, genDiscoverMakefileContent())
 }

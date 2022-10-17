@@ -9,3 +9,5 @@ export interface OutputChannel {
 }
 
 export type OptionalPromiseLike<T> = PromiseLike<T> | T
+
+export type OptionalPromise<T> = Promise<T> | T

@@ -20,19 +20,25 @@ export async function runSpecificTest(item: TestItem, output?: OutputChannel): P
 
   item.process = testProcess
 
+  let status: TestStatus = "errored"
   try {
     const result = (await childProcessToPromise({ process: testProcess })).toString()
     output?.appendLine(result)
 
-    const matches = result.match(/^pass/mi)
+    const [_, pass, fail] = result.match(/(^pass)|(^fail)/mi) || []
 
-    if (matches) {
-      return "passed"
+    if (pass) {
+      status = "passed"
+    } else if (fail) {
+      status = "failed"
+    } else {
+      setStatusFromResultFile(item)
     }
-
-    return "failed"
-  } catch {
-    return "errored"
+  } finally {
+    if (!finalStates.includes(item.status)) {
+      item.status = status
+    }
+    return status
   }
 }
 
@@ -40,13 +46,11 @@ export async function runInnerTests(item: TestItem, output?: OutputChannel): Pro
   output?.appendLine(`test ${item.id}`)
   iterableForEach(test => test.status = "queued", item, test => test.isComposite)
 
-  const testResults = await Promise.all(
-    Array.from(item, test => test.run(output))
+  await Promise.all(
+    Array.from(item).filter(test => !test.isComposite).map(test => test.run(output))
   )
 
-  const allPassed = testResults.every(test => test === "passed")
-
-  return allPassed ? "passed" : "failed"
+  return item.status
 }
 
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import * as assert from "assert"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 import path = require("path")
@@ -79,19 +80,43 @@ suite("Test Items", () => {
     await scopedCommand({
       cwd: ".testWorkspace",
       tempDir: true,
-      async execute() {
-        createTestsFiles([
-          "threads/build/tests/threads/test1.o",
-          "threads/build/tests/threads/test2.o",
-          "threads/build/tests/threads/otherfile.d",
-          "threads/build/tests/threads/nested/test1.o",
-          "threads/build/tests/threads/nested/test2.o",
-          "threads/build/tests/threads/nested/otherfile.d",
-          "userprog/build/tests/userprog/test1.o",
-          "userprog/build/tests/userprog/test2.o",
-        ])
+      async execute () {
+        createTestTree({
+          "threads/build": {
+            Makefile: [
+              {
+                variable: "PRUEBA_TEST",
+                tests: [
+                  "tests/threads/test1",
+                  "tests/threads/test2",
+                  "tests/threads/test3"
+                ]
+              }
+            ]
+          },
+          "userprog/build": {
+            Makefile: [
+              {
+                variable: "PRUEBA_TEST",
+                tests: [
+                  "tests/threads/test1",
+                  "tests/threads/test2",
+                  "tests/userprog/test1"
+                ]
+              },
+              {
+                variable: "PRUBA_EXTRA_GRADES",
+                tests: [
+                  "tests/userprog/test1-extra",
+                  "tests/userprog/test2-extra",
+                  "tests/threads/test1-extra"
+                ]
+              }
+            ]
+          }
+        })
 
-        const path = "build/tests"
+        const path = "build"
 
         const getTestsFrom = ensureLookupTestsInPhase.bind(null, {
           onMissingLocation({ path }) {
@@ -114,9 +139,7 @@ suite("Test Items", () => {
             "tests/threads",
             "tests/threads/test1",
             "tests/threads/test2",
-            "tests/threads/nested",
-            "tests/threads/nested/test1",
-            "tests/threads/nested/test2",
+            "tests/threads/test3"
           ].sort()
         )
 
@@ -129,9 +152,14 @@ suite("Test Items", () => {
           Array.from(userprogTest, prop("id")).sort(),
           [
             "tests",
+            "tests/threads",
+            "tests/threads/test1",
+            "tests/threads/test2",
+            "tests/threads/test1-extra",
             "tests/userprog",
             "tests/userprog/test1",
-            "tests/userprog/test2",
+            "tests/userprog/test1-extra",
+            "tests/userprog/test2-extra"
           ].sort()
         )
       },
@@ -235,15 +263,38 @@ suite("Test Items", () => {
   })
 })
 
-function createTestsFiles (files: string[]) {
-  files.forEach((file) => {
-    const parentPath = path.dirname(file)
-    if (!existsSync(parentPath)) {
-      mkdirSync(parentPath, { recursive: true })
+
+function createTestTree (testTree: Partial<TestTree>) {
+  const folders =  Object.keys(testTree).filter(entry => !Array.isArray(testTree[entry]))
+  const makefiles = Object.keys(testTree).filter(entry => Array.isArray(testTree[entry]))
+
+  makefiles.forEach((file) => {
+    writeFileSync(file, createMakefileWithTests(<TestVarTreeEntry[]> testTree[file]))
+  })
+
+  folders.forEach((folder) => {
+    if (!existsSync(folder)) {
+      mkdirSync(folder, { recursive: true })
     }
 
-    writeFileSync(file, "temp file")
+    scopedCommand({
+      cwd: folder,
+      execute: () => createTestTree(<TestTree> testTree[folder])
+    })
   })
+}
+
+function createMakefileWithTests(vars: TestVarTreeEntry[]): string {
+  return vars.map(entry => `${entry.variable} = ${entry.tests.join(" ")}`).join("\n").concat("\n")
+}
+
+type TestTree = {
+  [entry: string]: TestTree | TestVarTreeEntry[]
+}
+
+interface TestVarTreeEntry {
+  variable: string
+  tests: string[]
 }
 
 function testItemFactory ({ id, items = [] }: { id: string, items?: TestItem[] }) {

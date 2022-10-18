@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "fs"
 import { childProcessToPromise, spawnCommand } from "../launch"
 import { OutputChannel } from "../types"
-import { curry, iterableForEach } from "../utils/fp/common"
+import { curry, iterableForEach, waitMap } from "../utils/fp/common"
 import { finalStates, TestItem, TestStatus } from "./TestItem"
 
 export async function runSpecificTest(item: TestItem, output?: OutputChannel): Promise<TestStatus> {
@@ -44,19 +44,17 @@ export async function runSpecificTest(item: TestItem, output?: OutputChannel): P
 
 export async function runInnerTests(item: TestItem, output?: OutputChannel): Promise<TestStatus> {
   output?.appendLine(`test ${item.id}`)
-  iterableForEach(test => test.status = "queued", item, test => test.isComposite)
+  iterableForEach(test => test.status = "started", item.testLeafs)
 
-  await Promise.all(
-    Array.from(item).filter(test => !test.isComposite).map(test => test.run(output))
-  )
+  await waitMap(test => test.run(output), Array.from(item.testLeafs))
 
   return item.status
 }
 
 
 export async function runPintosPhase(item: TestItem, output?: OutputChannel): Promise<TestStatus> {
-  output?.appendLine(`test ${item.id}`)
-  iterableForEach(test => test.status = "queued", item, test => test.isComposite)
+  output?.appendLine(`test ${item.gid}`)
+  iterableForEach(test => test.status = "started", item.testLeafs)
 
   const testProcess = spawnCommand({
     cmd: "make",
@@ -66,6 +64,7 @@ export async function runPintosPhase(item: TestItem, output?: OutputChannel): Pr
 
   item.process = testProcess
 
+  let status: TestStatus = "errored"
   try {
     await childProcessToPromise({
       process: testProcess,
@@ -95,14 +94,25 @@ export async function runPintosPhase(item: TestItem, output?: OutputChannel): Pr
       }
     })
 
+    iterableForEach((test) => {
+      if (item.id.match(/dir-empty-name-persistence/)) {
+        console.log(`${test.status} ${item.gid}`)
+      }
+      setStatusFromResultFile(test)
+      if (test.status === "unknown") {
+        test.status = "errored"
+      }
+    }, item.testLeafs, test => finalStates.includes(test.status))
+
+    status = item.status
+  } catch (e: any) {
+    console.log(`[DEV Error] ${e}\n${e?.stack}`)
+    status = "errored"
+  } finally {
     output?.appendLine("")
     output?.appendLine(`exit with code ${testProcess.exitCode}`)
 
-    iterableForEach(setStatusFromResultFile, item, test => test.isComposite || finalStates.includes(test.status))
-
-    return item.status
-  } catch {
-    return "errored"
+    return status
   }
 }
 
@@ -118,6 +128,8 @@ export function setStatusFromResultFile(test: TestItem) {
     } else {
       test.status = "errored"
     }
+  } else {
+    test.status = "unknown"
   }
 }
 

@@ -8,6 +8,7 @@ export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skippe
 
 export class TestItem extends EventEmitter implements Iterable<TestItem> {
   public readonly id: string
+  public readonly gid: string
   public readonly basePath: string
   public readonly phase: string
   public readonly name: string
@@ -18,6 +19,8 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 
   private readonly _run: TestRunner
   private _status: TestStatus = "unknown"
+  private _prevStatus: TestStatus = "unknown"
+  private runBlocked: boolean = false
 
   public get status () {
     if (this.isComposite) {
@@ -32,7 +35,7 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
       throw new TestItemStatusFreezeError(`can't change the status of composite (${this.id})`)
     }
     this._status = value
-    this.emit("status", this)
+    this.backupAndPropagateChange()
   }
 
   public get isComposite () {
@@ -52,6 +55,7 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 
   constructor (test: {
     id: string
+    gid?: string
     basePath: string
     name: string
     phase: string
@@ -63,6 +67,7 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     super()
     this._run = test.run
     this.id = test.id
+    this.gid = test.gid || `%${test.phase}%${test.id}`
     this.basePath = test.basePath
     this.name = test.name
     this.children = test.children
@@ -77,13 +82,25 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     this.emit("status", item)
 
     if (this.children.includes(item)) {
+      this.backupAndPropagateChange()
+    }
+  }
+
+  private backupStatus () {
+    this._prevStatus = this.status
+  }
+
+  private backupAndPropagateChange () {
+    const status = this.status
+    if (this._prevStatus !== status) {
+      this.backupStatus
       this.emit("status", this)
     }
   }
 
   private statusBaseOnChildren () {
     const status = this.children.map(prop("status")).reduce((currentStatus, itemStatus) => {
-      const loadingStatus: TestStatus[] = ["queued", "started"]
+      const loadingStatus: TestStatus[] = ["enqueued", "started"]
       if (currentStatus === "started") {
         return "started"
       }
@@ -104,22 +121,28 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
   }
 
   public async run(output?: OutputChannel): Promise<TestStatus> {
-    return await this._run(this, output)
+    if (!this.runBlocked) {
+      return await this._run(this, output)
+    } else {
+      this.runBlocked = false
+      return "unknown"
+    }
   }
 
   public stop(signal: NodeJS.Signals = "SIGTERM"): boolean {
     let killed = false
 
-    if (this.process) {
+    if (!this.process && this.isComposite) {
+      killed = this.children.map(item => item.stop(signal)).reduce((acc, success) => acc && success, true)
+    } else if (this.process) {
       killed = this.process.kill(signal)
-    }
-
-    if (!killed && this.children.length > 0) {
-      return this.children.map(item => item.stop(signal)).reduce((acc, success) => acc && success, true)
+    } else {
+      this.runBlocked = true
+      killed = true
     }
 
     if (this.isComposite) {
-      iterableForEach(item => item.status = "unknown", this, test => test.isComposite || finalStates.includes(test.status))
+      iterableForEach(item => item.status = "unknown", this.testLeafs, test => finalStates.includes(test.status))
     } else {
       this.status = "unknown"
     }
@@ -128,7 +151,7 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
   }
 
   public lookup(testId: string | null): TestItem | null {
-    if (this.id === testId) {
+    if (this.id === testId || this.gid === testId) {
       return this
     }
 
@@ -143,12 +166,31 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     return null
   }
 
-  public map<T>(fn: TestItemMapper<T>) {
-    return fn(this, fn)
+  public map<T, C = undefined>(fn: TestItemMapper<T, C>): T
+  public map<T, C = any>(fn: TestItemMapper<T, C>, context: C): T
+  public map<T, C = any>(fn: TestItemMapper<T, C>, context?: C): T {
+    return fn(this, fn, <C> context)
   }
 
-  public static createMapper<T>(fn: TestItemMapper<T>) {
+  public static createMapper<T, C = any>(fn: TestItemMapper<T, C>): TestItemMapper<T, C> {
     return fn
+  }
+
+  /** Returns an iterable of all children who are leaves (not composite) */
+  public get testLeafs(): Iterable<TestItem> {
+    return {
+      [Symbol.iterator]: this.testLeafsIterator.bind(this)
+    }
+  }
+
+  private *testLeafsIterator(): Iterator<TestItem> {
+    if (this.isComposite) {
+      for (let item of this.children) {
+        yield* item.testLeafs
+      }
+    } else {
+      yield this
+    }
   }
 
   *[Symbol.iterator](): Iterator<TestItem> {
@@ -161,19 +203,20 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 
 export declare interface TestItem {
   on(event: TestItemEvent, listener: (item: TestItem) => void): this
+  off(event: TestItemEvent, listener: (item: TestItem) => void): this
   emit(event: TestItemEvent, item: TestItem): boolean
 }
 
 export type TestItemEvent = "status"
 
-export type TestItemMapper<T> = (item: TestItem, map: TestItemMapper<T>) => T
+export type TestItemMapper<T, C = any> = (item: TestItem, map: TestItemMapper<T, C>, context: C) => T
 
 export type TestRunner = (item: TestItem, output?: OutputChannel) => OptionalPromiseLike<TestStatus>
 
 export type TestStatus = "passed"
   | "failed"
   | "unknown"
-  | "queued"
+  | "enqueued"
   | "errored"
   | "skipped"
   | "started"

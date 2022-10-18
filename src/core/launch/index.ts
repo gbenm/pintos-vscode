@@ -42,10 +42,7 @@ function cmdToDisplay(cmd: string | string[]) {
 }
 
 export function scopedCommand<R>({ cwd, execute, tempDir = false }: {
-  execute: ({ chdir }: {
-    chdir: (dir: string) => void
-    resetCwd: () => void
-  }) => R,
+  execute: ScopedCommandExecutor<R>,
   cwd: string
   tempDir?: boolean
 }): R  {
@@ -90,6 +87,11 @@ export function scopedCommand<R>({ cwd, execute, tempDir = false }: {
     })
   }
 }
+
+export type ScopedCommandExecutor<R> = ({ chdir }: {
+    chdir: (dir: string) => void
+    resetCwd: () => void
+  }) => R
 
 export function spawnCommand({ cmd, args, cwd, env = {} }: {
   cmd: string

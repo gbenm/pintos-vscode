@@ -1,3 +1,4 @@
+import { FunctionsOf } from "../../types"
 import { Curry, FilterFn, LastFn, ObjectWith, UnionToIntersection } from "./types"
 
 export function compose<BR, FNS extends [...((...v: any[]) => any)[]]>(
@@ -35,9 +36,24 @@ export function prop <T extends string, O extends ObjectWith<T>>(prop: T, obj?: 
   return obj => obj[prop]
 }
 
+export const capitalize = (text: string) => text
+  .split(" ")
+  .map(word => word.split(""))
+  .map(([letter, ...rest]) => letter?.toUpperCase().concat(rest.join("")) || "")
+  .join(" ")
+
 export const notNull = <T>(item: T) => item !== null
 
 export const filtersAnd = <T, I>(...fns: FilterFn<T, I>[]): FilterFn<T, I> => (item,  index) => fns.map(fn => fn(item, index)).reduce((a, b) => a && b, true)
+
+export async function waitMap<T, K>(fn: (v: T) => Promise<K>, items: T[]): Promise<K[]> {
+  const result: K[] = []
+  for (let item of items) {
+    const test = await fn(item)
+    result.push(test)
+  }
+  return result
+}
 
 export function iterableForEach<T>(fn: (item: T, i: number) => void, iterator: Iterable<T>, skipElement?: (item: T, i: number) => boolean) {
   let i = 0
@@ -54,4 +70,23 @@ export function iterableForEach<T>(fn: (item: T, i: number) => void, iterator: I
       fn(item, i++)
     }
   }
+}
+
+export function bind<T extends object>(source: T): FunctionsOf<T> {
+  const memo: Map<string | symbol, unknown> = new Map()
+  return <FunctionsOf<T>> new Proxy(source, {
+    get(target: any, fnKey) {
+      if (!memo.has(fnKey)) {
+        memo.set(fnKey, target[fnKey]?.bind(target))
+      }
+
+      return memo.get(fnKey)
+    }
+  })
+}
+
+export function iterLikeTolist<T>(collection: { forEach: (iter: (e: T) => void) => void }): T[] {
+  const list: T[] = []
+  collection.forEach(e => list.push(e))
+  return list
 }

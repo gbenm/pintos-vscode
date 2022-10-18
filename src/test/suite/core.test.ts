@@ -294,7 +294,7 @@ suite("Test Items", () => {
       testItem3.status = "passed"
       testItem4.status = "passed"
 
-      assert.deepEqual(statusHistory, ["3", "2", "1", "4", "1"])
+      assert.deepEqual(statusHistory, ["3", "2", "4", "1"])
     })
 
     test("merge status", () => {
@@ -315,9 +315,9 @@ suite("Test Items", () => {
 
       mainTest.on("status", ({ id, status }) => statusHistory.push({ id, status }))
 
-      test3.status = "queued"
-      test4.status = "queued"
-      test5.status = "queued"
+      test3.status = "enqueued"
+      test4.status = "enqueued"
+      test5.status = "enqueued"
 
       test3.status = "started"
       test3.status = "passed"
@@ -329,28 +329,28 @@ suite("Test Items", () => {
       test5.status = "errored"
 
       const expectedHistory: typeof statusHistory = [
-        { id: "3", status: "queued" },
-        { id: "2", status: "queued" },
-        { id: "1", status: "queued" },
-        { id: "4", status: "queued" },
-        { id: "2", status: "queued" },
-        { id: "1", status: "queued" },
-        { id: "5", status: "queued" },
-        { id: "1", status: "queued" },
+        { id: "3", status: "enqueued" },
+        { id: "2", status: "enqueued" },
+        { id: "1", status: "enqueued" },
+        { id: "4", status: "enqueued" },
+        { id: "2", status: "enqueued" },
+        { id: "1", status: "enqueued" },
+        { id: "5", status: "enqueued" },
+        { id: "1", status: "enqueued" },
 
         { id: "3", status: "started" },
         { id: "2", status: "started" },
         { id: "1", status: "started" },
         { id: "3", status: "passed" },
-        { id: "2", status: "queued" },
-        { id: "1", status: "queued" },
+        { id: "2", status: "enqueued" },
+        { id: "1", status: "enqueued" },
 
         { id: "4", status: "started" },
         { id: "2", status: "started" },
         { id: "1", status: "started" },
         { id: "4", status: "failed" },
         { id: "2", status: "failed" },
-        { id: "1", status: "queued" },
+        { id: "1", status: "enqueued" },
 
         { id: "5", status: "started" },
         { id: "1", status: "started" },

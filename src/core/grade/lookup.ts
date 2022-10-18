@@ -8,7 +8,7 @@ import { TestItem, TestRunner } from "./TestItem"
 
 const discoverMakefile = "vscTestDiscover.Makefile"
 
-export function ensureLookupTestsInPhase({ onMissingLocation, onMissingDiscoverMakefile, splitId, generateId, getNameOf, getDirOf }: {
+export async function ensureLookupTestsInPhase({ onMissingLocation, onMissingDiscoverMakefile, splitId, generateId, getNameOf, getDirOf }: {
   onMissingLocation: (location: LookupLocation) => OptionalPromiseLike<void>
   onMissingDiscoverMakefile: (discoverMakefileName: string, location: LookupLocation) => OptionalPromiseLike<void>
   getDirOf: TestDirLocator
@@ -18,45 +18,56 @@ export function ensureLookupTestsInPhase({ onMissingLocation, onMissingDiscoverM
 }, location: LookupLocation): Promise<TestItem> {
   const { path, phase } = location
 
-  return scopedCommand({
-    cwd: phase,
-    async execute() {
-      if (!existsSync(path)) {
-        await onMissingLocation(location)
-      }
+  try {
+    return scopedCommand({
+      cwd: phase,
+      async execute() {
+        if (!existsSync(path)) {
+          await onMissingLocation(location)
+        }
 
-      const discoverMakefilePath = joinPath(path, discoverMakefile)
-      if (!existsSync(discoverMakefilePath)) {
-        await onMissingDiscoverMakefile(discoverMakefilePath, location)
-      }
+        const discoverMakefilePath = joinPath(path, discoverMakefile)
+        if (!existsSync(discoverMakefilePath)) {
+          await onMissingDiscoverMakefile(discoverMakefilePath, location)
+        }
 
-      const testsIds = getTestsFromMakefile(discoverMakefile, path)
+        const testsIds = getTestsFromMakefile(discoverMakefile, path)
 
-      const testTree = generateTestTree({
-        ids: testsIds,
-        generateId,
-        splitId,
-        phase
-      })
+        const testTree = generateTestTree({
+          ids: testsIds,
+          generateId,
+          splitId,
+          phase
+        })
 
-      const [mainTestId, ...rest] = Object.keys(testTree)
+        const [mainTestId, ...rest] = Object.keys(testTree)
 
-      if (rest.length > 0) {
-        throw new Error(`The "${phase}" phase must have only one main test`)
-      }
+        if (rest.length > 0) {
+          throw new Error(`The "${phase}" phase must have only one main test`)
+        }
 
-      const tree = testTree[mainTestId]
+        const tree = testTree[mainTestId]
 
+        return testItemFactory({
+          tree,
+          getDirOf: getDirOf,
+          getNameOf,
+          phase,
+          testId: mainTestId,
+          parentTestRun: runPintosPhase
+        })
+      },
+    })
+  } catch {
       return testItemFactory({
-        tree,
+        tree: null,
         getDirOf: getDirOf,
         getNameOf,
         phase,
-        testId: mainTestId,
+        testId: generateId({ baseId: "pintos.error", segment: phase, phase }),
         parentTestRun: runPintosPhase
       })
-    },
-  })
+  }
 }
 
 export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, parentTestRun, elseChildren }: {

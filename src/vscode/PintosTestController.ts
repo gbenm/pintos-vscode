@@ -277,7 +277,6 @@ class TestRunner implements vscode.Disposable {
 
 
 const tovscTestItem = TestItem.createMapper<vscode.TestItem, { tags: vscode.TestTag[], controller: PintosTestController }>((test, fn, { controller, tags: parentTags }) => {
-  console.log(`${JSON.stringify(this)}`)
   controller.allTests.set(test.gid, test)
   const vscTest = controller.createTestItem(test.gid, test.name)
   const tags: vscode.TestTag[] = [{ id: `#${test.phase}` }]

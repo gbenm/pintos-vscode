@@ -56,16 +56,16 @@ export async function runPintosPhase(item: TestItem, output?: OutputChannel): Pr
   output?.appendLine(`test ${item.gid}`)
   iterableForEach(test => test.status = "started", item.testLeafs)
 
-  const testProcess = spawnCommand({
-    cmd: "make",
-    args: ["grade"],
-    cwd: item.phase
-  })
-
-  item.process = testProcess
-
   let status: TestStatus = "errored"
   try {
+    const testProcess = spawnCommand({
+      cmd: "make",
+      args: ["grade"],
+      cwd: item.phase
+    })
+
+    item.process = testProcess
+
     await childProcessToPromise({
       process: testProcess,
       onData(buffer: Buffer) {
@@ -94,15 +94,17 @@ export async function runPintosPhase(item: TestItem, output?: OutputChannel): Pr
       }
     })
 
-    iterableForEach((test) => {
-      if (item.id.match(/dir-empty-name-persistence/)) {
-        console.log(`${test.status} ${item.gid}`)
-      }
-      setStatusFromResultFile(test)
-      if (test.status === "unknown") {
-        test.status = "errored"
-      }
-    }, item.testLeafs, test => finalStates.includes(test.status))
+    if (item.isComposite) {
+      iterableForEach((test) => {
+        setStatusFromResultFile(test)
+        if (test.status === "unknown") {
+          test.status = "errored"
+        }
+      }, item.testLeafs, test => finalStates.includes(test.status))
+    } else if (testProcess.exitCode !== 0 && finalStates.includes(item.status)) {
+      status = "errored"
+    }
+
 
     status = item.status
   } catch (e: any) {
@@ -110,7 +112,11 @@ export async function runPintosPhase(item: TestItem, output?: OutputChannel): Pr
     status = "errored"
   } finally {
     output?.appendLine("")
-    output?.appendLine(`exit with code ${testProcess.exitCode}`)
+    output?.appendLine(`exit with code ${item.process?.exitCode}`)
+
+    if (!item.isComposite) {
+      item.status = status
+    }
 
     return status
   }

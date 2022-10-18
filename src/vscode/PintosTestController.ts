@@ -3,8 +3,8 @@ import { ensureLookupTestsInPhase } from "../core/grade/lookup"
 import { TestItem } from "../core/grade/TestItem"
 import { scopedCommand, ScopedCommandExecutor } from "../core/launch"
 import { getCurrentWorkspaceUri } from "./utils"
-import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, splitTestId } from "../core/grade/utils"
-import { bind, iterableForEach, iterLikeTolist, waitMap } from "../core/utils/fp/common"
+import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, onMissingTestDir, splitTestId } from "../core/grade/utils"
+import { iterableForEach, iterLikeTolist, waitMap } from "../core/utils/fp/common"
 import { OutputChannel } from "../core/types"
 
 export class TestController implements vscode.TestController {
@@ -149,9 +149,7 @@ export default class PintosTestController extends TestController {
     return this.cmdFromRootProject(async () => {
       const phases = this.phases
       const getTestFrom = (phase: string) => ensureLookupTestsInPhase({
-        onMissingLocation() {
-          throw new Error("compile threads tests")
-        },
+        onMissingLocation: onMissingTestDir,
         generateId: generateTestId,
         getDirOf: getDirOfTest,
         getNameOf: getNameOfTest,

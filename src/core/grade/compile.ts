@@ -1,10 +1,10 @@
 import { executeCommand, spawnCommand } from "../launch"
 
-export function compilePhase(phase: string) {
+export function compilePhase(dir?: string) {
   return spawnCommand({
     cmd: "make",
     args: [],
-    cwd: phase
+    cwd: dir
   })
 }
 

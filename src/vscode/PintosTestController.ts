@@ -58,7 +58,7 @@ export default class PintosTestController extends TestController {
       "run profile",
       vscode.TestRunProfileKind.Run,
       (request, token) => {
-        console.log(`new request ${JSON.stringify(request.include?.map(t => t.label))}`)
+        console.log(`[DEV] Test Run Request: ${request.include?.map(t => t.label) || "All Tests"}`)
         if (token.isCancellationRequested) {
           this.cancel(request)
         } else {
@@ -138,11 +138,23 @@ export default class PintosTestController extends TestController {
   }
 
   public enqueue(runner: TestRunner) {
+    if (this.isEnqueued(runner)) {
+      runner.dispose()
+      return
+    }
+
     this.queue.push(runner)
 
     if (!this.currentRunner) {
       this.dequeueAndRunUntilEmpty()
     }
+  }
+
+  public isEnqueued(runner: TestRunner): boolean {
+    const [firstTest] = runner.tests
+    const testid = firstTest.gid
+
+    return this.currentRunner?.includes(testid) || !!this.queue.find(runner => runner.includes(testid))
   }
 
   public discoverTests(): Promise<TestItem[]> {

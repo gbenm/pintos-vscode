@@ -1,5 +1,6 @@
 import * as vscode from "vscode"
 import checkPintosHealth from "./vscode/checkPintosHealth"
+import { ExtConfig } from "./vscode/config"
 import createPintosProject from "./vscode/createPintosProject"
 import PintosTestController from "./vscode/PintosTestController"
 import setupDevContainer from "./vscode/setupDevContainer"
@@ -21,7 +22,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const workspaceDir = getCurrentWorkspaceUri().fsPath
   process.env.PATH = `${process.env.PATH}:${workspaceDir}/utils`
   await PintosTestController.create({
-    phases: ["threads", "userprog", "vm", "filesys"],
+    phases: ExtConfig.pintosPhases,
     output
   })
 }

@@ -73,6 +73,11 @@
           ],
           "default": null,
           "description": "Your repository"
+        },
+        "pintos.phases": {
+          "type": "array",
+          "default": ["threads", "userprog", "vm", "filesys"],
+          "description": "A list of PintOS phases"
         }
       }
     }

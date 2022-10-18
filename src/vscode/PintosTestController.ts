@@ -258,10 +258,10 @@ class TestRunner implements vscode.Disposable {
         this.testRun[status](vscTest)
         break
       case "unknown":
-        // TODO: search how to reflect "unknown" status
+        // NOTE: "unknown" preserves the previous status
         break
       default:
-        throw new Error("status ${status} is not handled")
+        throw new Error(`status ${status} is not handled`)
     }
   }
 

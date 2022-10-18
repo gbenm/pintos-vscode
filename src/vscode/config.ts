@@ -20,6 +20,13 @@ export class ExtConfig {
     return personalRepoUrl ?? null
   }
 
+  static get pintosPhases (): string[] {
+    return this.required({
+      value: this.config.get<string[]>("phases"),
+      errorMessage: "You must add phases to use this extension"
+    })
+  }
+
   private static get config () {
     return vscode.workspace.getConfiguration("pintos")
   }

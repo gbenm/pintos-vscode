@@ -197,14 +197,13 @@ export default class PintosTestController extends TestController {
         })
         console.log(`cancel? ${cancel}`)
 
-        if (cancel) {
-          return false
-        } else {
+        if (!cancel) {
           await item.removeFiles()
           return true
         }
-      } catch (e) {
-        console.log(`${e}`)
+
+        return false
+      } catch {
         return false
       }
     }

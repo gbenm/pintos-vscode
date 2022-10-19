@@ -136,13 +136,13 @@ export function childProcessToPromise(args: {
     if (onData) {
       process.stdout.on("data", onData)
       process.stderr.on("data", onData)
-      process.on("exit", resolve)
+      process.on("close", resolve)
     } else {
       const result: Buffer[] = []
       process.stdout.on("data", (data: Buffer) => {
         result.push(data)
       })
-      process.on("exit", () => resolve(Buffer.concat(result)))
+      process.on("close", () => resolve(Buffer.concat(result)))
     }
     process.on("error", reject)
   })

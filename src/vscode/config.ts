@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 
-export class ExtConfig {
+export class Config {
   static get baseRepository (): string {
     const repo = this.config.get<string>("baseRepository")
 

@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { mkdirsSync, removeSync } from "fs-extra"
 import { join } from "node:path"
-import { ExtConfig } from "./config"
+import { Config } from "./config"
 import { clonePintosSnapshot, initPintosProject } from "../core/create"
 import { executeOrStopOnError, handleError } from "./errors"
 import { existsSync } from "node:fs"
@@ -15,8 +15,8 @@ export default async function (context: vscode.ExtensionContext, output: vscode.
   output.show()
 
   const localPath = join(path, "temp")
-  const repoUrl = ExtConfig.baseRepository
-  const codeFolder = ExtConfig.baseRepositoryCodeFolder
+  const repoUrl = Config.baseRepository
+  const codeFolder = Config.baseRepositoryCodeFolder
 
   removeSync(localPath)
 
@@ -77,7 +77,7 @@ async function vscInitPintosProject(pintosPath: string, output: vscode.OutputCha
     execute: () => getUserInput({
       title: "Your repository",
       placeholder: "e.g. https://github.com/gbenm/pintos-vscode",
-      initialValue: ExtConfig.personalRepoUrl ?? ""
+      initialValue: Config.personalRepoUrl ?? ""
     }),
     message: "stop PintOS setup",
     onError: showStopMessage(output)

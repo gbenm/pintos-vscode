@@ -12,10 +12,12 @@ export type OptionalPromiseLike<T> = PromiseLike<T> | T
 
 export type OptionalPromise<T> = Promise<T> | T
 
-export type FunctionsOf<T extends object, FnLike = (...args: any[]) => any> = RemoveNever<{
+export type FunctionsOf<T extends object, FnLike = Fn> = RemoveNever<{
   [K in keyof T]: T[K] extends FnLike | null | undefined ? T[K] : never
 }>
 
 export type RemoveNever<T extends object> = Omit<T, keyof {
   [K in keyof T as T[K] extends never ? K : never]: unknown
 }>
+
+export type Fn = (...args: any[]) => any

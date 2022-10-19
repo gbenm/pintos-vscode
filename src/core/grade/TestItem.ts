@@ -1,8 +1,9 @@
 import { ChildProcessWithoutNullStreams } from "node:child_process"
 import { EventEmitter } from "node:events"
 import { dirname, join as joinPath, resolve as resolvePath } from "node:path"
-import { OptionalPromiseLike, OutputChannel } from "../types"
+import { Fn, OptionalPromiseLike, OutputChannel } from "../types"
 import { iterableForEach, prop } from "../utils/fp/common"
+import { or } from "../utils/fp/math"
 import { existsfile, rmfile } from "./utils"
 
 export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skipped", "unknown"]
@@ -24,38 +25,11 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
   private readonly _run: TestRunner
   private _status: TestStatus = "unknown"
   private _prevStatus: TestStatus = "unknown"
+  private _backless: boolean = true
+  private _prevBackless: boolean = true
   private runBlocked: boolean = false
 
-  public get status () {
-    if (this.isComposite) {
-      return this.statusBaseOnChildren()
-    }
-
-    return this._status
-  }
-
-  public set status (value: TestStatus) {
-    if (this.isComposite) {
-      throw new TestItemStatusFreezeError(`can't change the status of composite (${this.id})`)
-    }
-    this._status = value
-    this.backupAndPropagateChange()
-  }
-
-  public get isComposite () {
-    return this.children.length > 0
-  }
-
   private _process?: ChildProcessWithoutNullStreams
-
-  public get process () {
-    return this._process
-  }
-
-  public set process (process) {
-    this.process?.kill()
-    this._process = process
-  }
 
   constructor (test: {
     id: string
@@ -83,27 +57,88 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     this.outputFile = joinPath(dirname(this.resultFile), this.name.concat(".output"))
     this.beforeRun = test.beforeRun
 
-    this.children.forEach(item => item.on("status", this.onChangeChildStatus.bind(this)))
+    this.children.forEach(item => item.on("any", this.onChangeChild.bind(this)))
   }
 
-  private onChangeChildStatus (item: TestItem) {
-    this.emit("status", item)
+  public get backless (): boolean {
+    if (this.isComposite) {
+      return this.children.map(child => child.backless).reduce(or, false)
+    }
+
+    return this._backless
+  }
+
+  public set backless (value) {
+    if (this.isComposite) {
+      throw new TestItemStatusFreezeError(`can't change the backless of composite (${this.id})`)
+    }
+    this._backless = value
+    this.backupAndPropagateBacklessChange()
+  }
+
+  public get status () {
+    if (this.isComposite) {
+      return this.statusBaseOnChildren()
+    }
+
+    return this._status
+  }
+
+  public set status (value: TestStatus) {
+    if (this.isComposite) {
+      throw new TestItemStatusFreezeError(`can't change the status of composite (${this.id})`)
+    }
+    this._status = value
+    this.backupAndPropagateStatusChange()
+  }
+
+  public get isComposite () {
+    return this.children.length > 0
+  }
+
+  public get process () {
+    return this._process
+  }
+
+  public set process (process) {
+    this.process?.kill()
+    this._process = process
+  }
+
+  private onChangeChild (item: TestItem, change: unknown, event: TestItemEvent) {
+    this.emit(event, item, change)
 
     if (this.children.includes(item)) {
-      this.backupAndPropagateChange()
+      if (event === "status") {
+        this.backupAndPropagateStatusChange()
+      } else if (event === "backless") {
+        this.backupAndPropagateBacklessChange()
+      }
     }
   }
 
-  private backupStatus () {
-    this._prevStatus = this.status
-  }
-
-  private backupAndPropagateChange () {
+  private backupAndPropagateStatusChange () {
     const status = this.status
     if (this._prevStatus !== status) {
-      this.backupStatus
-      this.emit("status", this)
+      this.backupStatus(status)
+      this.emit("status", this, status)
     }
+  }
+
+  private backupStatus (status: TestStatus) {
+    this._prevStatus = status
+  }
+
+  private backupAndPropagateBacklessChange () {
+    const backless = this.backless
+    if (this._prevBackless !== backless) {
+      this.backupBackless(backless)
+      this.emit("backless", this, backless)
+    }
+  }
+
+  private backupBackless (backless: boolean) {
+    this._prevBackless = backless
   }
 
   private statusBaseOnChildren () {
@@ -126,6 +161,11 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     }, "unknown")
 
     return status
+  }
+
+  public emit (event: TestItemEvent, item: TestItem, change: unknown) {
+    super.emit("any", item, change, event)
+    return super.emit(event, item, change)
   }
 
   public async removeFiles () {
@@ -180,13 +220,17 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     return killed
   }
 
-  public lookup(testId: string | null): TestItem | null {
-    if (this.id === testId || this.gid === testId) {
+  public lookup(
+    query: { by: "testid", search: string } | { by: "custom", search: (item: TestItem) => boolean }
+  ): TestItem | null {
+    if (query.by === "testid"  && (this.gid === query.search || this.id === query.search)) {
+      return this
+    } else if (query.by === "custom" && query.search(this)) {
       return this
     }
 
     for (let item of this.children) {
-      const result = item.lookup(testId)
+      const result = item.lookup(query)
 
       if (result) {
         return result
@@ -232,12 +276,19 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 }
 
 export declare interface TestItem {
-  on(event: TestItemEvent, listener: (item: TestItem) => void): this
-  off(event: TestItemEvent, listener: (item: TestItem) => void): this
-  emit(event: TestItemEvent, item: TestItem): boolean
+  on(event: "status", listener: (item: TestItem, status: TestStatus) => void): this
+  on(event: "backless", listener: (item: TestItem, backless: boolean) => void): this
+  on(event: "any", listener: (item: TestItem, change: unknown, event: TestItemEvent) => void): this
+  on(event: TestItemEvent, listener: (item: TestItem, change: unknown, event: TestItemEvent) => void): this
+  off(event: TestItemEvent, listener: Fn): this
+
+  emit(event: "status", item: TestItem, status: TestStatus): boolean
+  emit(event: "backless", item: TestItem, backless: boolean): boolean
+  emit(event: "any", item: TestItem, change: unknown): boolean
+  emit(event: TestItemEvent, item: TestItem, change: unknown): boolean
 }
 
-export type TestItemEvent = "status"
+export type TestItemEvent = "status" | "backless" | "any"
 
 export type TestItemMapper<T, C = any> = (item: TestItem, map: TestItemMapper<T, C>, context: C) => T
 

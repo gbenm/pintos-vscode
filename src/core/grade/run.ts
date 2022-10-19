@@ -79,7 +79,10 @@ export async function runPintosPhase(item: TestItem, output?: OutputChannel): Pr
             return
           }
 
-          const test = item.lookup(testId)
+          const test = item.lookup({
+            by: "testid",
+            search: testId
+          })
 
           if (test && !test.isComposite) {
             test.status = status
@@ -128,7 +131,9 @@ export function setStatusFromResultFile(test: TestItem) {
     } else {
       test.status = "errored"
     }
+    test.backless = false
   } else {
+    test.backless = true
     test.status = "unknown"
   }
 }

@@ -1,16 +1,17 @@
 import * as vscode from "vscode"
 import { ensureLookupTestsInPhase } from "../core/grade/lookup"
-import { TestItem } from "../core/grade/TestItem"
+import { TestItem, TestItemMapper, TestStatus } from "../core/grade/TestItem"
 import { childProcessToPromise, scopedCommand, ScopedCommandExecutor } from "../core/launch"
-import { getCurrentWorkspaceUri, pickOptions, showStopMessage, createScopedHandler } from "./utils"
+import { getCurrentWorkspaceUri, pickOptions, showStopMessage, createScopedHandler, uriFromCurrentWorkspace } from "./utils"
 import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, onMissingTestDir, splitTestId } from "../core/grade/utils"
 import { bind, iterableForEach, iterLikeTolist, prop, waitForEach, waitMap } from "../core/utils/fp/common"
 import { OutputChannel } from "../core/types"
 import { cleanAndCompilePhase } from "../core/grade/compile"
 import { setStatusFromResultFile } from "../core/grade/run"
 import { executeOrStopOnError } from "./errors"
+import { existsSync } from "node:fs"
 
-export class TestController implements vscode.TestController {
+export class TestController implements vscode.TestController, vscode.Disposable {
   protected vscTestController: vscode.TestController
 
   public get id () {
@@ -28,7 +29,6 @@ export class TestController implements vscode.TestController {
   public createRunProfile: vscode.TestController["createRunProfile"]
   public createTestItem: vscode.TestController["createTestItem"]
   public createTestRun: vscode.TestController["createTestRun"]
-  public dispose: vscode.TestController["dispose"]
   public refreshHandler: vscode.TestController["refreshHandler"]
   public resolveHandler: vscode.TestController["resolveHandler"]
 
@@ -39,7 +39,10 @@ export class TestController implements vscode.TestController {
     this.createTestRun = this.vscTestController.createTestRun
     this.refreshHandler = this.vscTestController.refreshHandler
     this.resolveHandler = this.vscTestController.resolveHandler
-    this.dispose = this.vscTestController.dispose
+  }
+
+  dispose(): void {
+    this.vscTestController.dispose()
   }
 }
 
@@ -53,6 +56,7 @@ export default class PintosTestController extends TestController {
   private currentRunner: TestRunner | null = null
   private output?: vscode.OutputChannel
   private readonly rootPath: string = getCurrentWorkspaceUri().fsPath
+  private readonly disposables: vscode.Disposable[] = []
 
   private constructor (
     public readonly phases: string[]
@@ -166,6 +170,7 @@ export default class PintosTestController extends TestController {
 
     const tests = await controller.discoverTests()
     controller.rootTests = tests
+    controller.watchTestsFiles()
 
     tests.forEach((test, i) => {
       test.children.forEach((subtest) => {
@@ -188,14 +193,13 @@ export default class PintosTestController extends TestController {
     if (await item.existsResultFile()) {
       try {
         const [cancel] = await pickOptions({
-          title: "Do you want to re-run the test?",
+          title: `Do you want to re run ${item.name}`,
           options: [
             { label: "Re run the test", cancel: false },
             { label: "Cancel", cancel: true }
           ],
           mapFn: option => option.cancel
         })
-        console.log(`cancel? ${cancel}`)
 
         if (!cancel) {
           await item.removeFiles()
@@ -237,7 +241,7 @@ export default class PintosTestController extends TestController {
     }
 
     this.queue.push(runner)
-    runner.enqueued = true
+    runner.markAsEnqueued()
 
     if (!this.currentRunner) {
       this.dequeueAndRunUntilEmpty()
@@ -274,33 +278,116 @@ export default class PintosTestController extends TestController {
     })
   }
 
+  private watchTestsFiles() {
+    const folders = this.phases.map(phase => uriFromCurrentWorkspace(phase)).map(
+      uri => vscode.workspace.getWorkspaceFolder(uri)
+    )
+
+    const backlessHandler = (item: TestItem, backless: boolean) => {
+      const vsctest = this.allvscTests.get(item.gid)!
+      vsctest.description = Date.now().toString()
+      vsctest.description = vsctestDescription(backless)
+    }
+
+    const statusHandler = (item: TestItem, status: TestStatus) => {
+      // const testRunner = this.createTestRunner()
+      // testRunner.reflectCurrentTestsStatusInUI()
+      // testRunner.dispose()
+    }
+
+    this.rootTests.forEach(test => {
+      test.on("backless", backlessHandler)
+      test.on("status", statusHandler)
+    })
+
+    const testWatcherDisposable = {
+      dispose: () => {
+        this.rootTests.forEach(test => {
+          test.off("backless", backlessHandler)
+          test.off("status", statusHandler)
+        })
+      }
+    }
+
+    this.disposables.push(testWatcherDisposable)
+
+    folders
+      .map(folder => {
+        if (!folder) {
+          return null
+        }
+
+        const pattern = new vscode.RelativePattern(folder, "**/*.result")
+        const watcher = vscode.workspace.createFileSystemWatcher(pattern)
+
+        const changeStatusOfTest = ({ fsPath }: vscode.Uri) => {
+          const test = this.findTestByResultFile(fsPath)
+          if (test) {
+            setStatusFromResultFile(test)
+          }
+        }
+
+        const notifyResultFileDeletion = ({ fsPath }: vscode.Uri) => {
+          const test = this.findTestByResultFile(fsPath)
+          if (test) {
+            test.backless = true
+            test.status = "unknown"
+          }
+        }
+
+        watcher.onDidCreate(changeStatusOfTest)
+        watcher.onDidChange(changeStatusOfTest)
+        watcher.onDidDelete(notifyResultFileDeletion)
+
+        return watcher
+      })
+      .filter(item => item !== null)
+      .forEach(diposable => this.disposables.push(diposable!))
+  }
+
+  public isWithinActiveTestRunners(testid: string) {
+
+  }
+
+  public findTestByResultFile(file: string) {
+    for (let rootTest of this.rootTests) {
+      const test = rootTest.lookup({
+        by: "custom",
+        search: item => item.resultFile === file
+      })
+
+      if (test) {
+        return test
+      }
+    }
+
+    return null
+  }
+
   private cmdFromRootProject<R>(execute: ScopedCommandExecutor<R>) {
     return scopedCommand({
       cwd: this.rootPath,
       execute
     })
   }
+
+  dispose(): void {
+    this.disposables.forEach(disposable => disposable.dispose())
+    super.dispose()
+  }
 }
 
 
 class TestRunner implements vscode.Disposable {
-  public readonly tests: TestItem[]
-  public readonly allvscTests: ReadonlyMap<string, vscode.TestItem>
-  public readonly testRun: vscode.TestRun
-  public readonly output?: OutputChannel
+  public readonly tests: readonly TestItem[]
+  private readonly allvscTests: ReadonlyMap<string, vscode.TestItem>
+  private readonly testRun: vscode.TestRun
+  private readonly output?: OutputChannel
 
-  public queue: TestItem[]
+  private queue: TestItem[]
   private currentProcess: TestItem | null = null
 
-  private readonly statusHandler = this.reflectTestsStatusInUI.bind(this)
-
-  public set enqueued (isEnqueued: boolean) {
-    if (isEnqueued) {
-      this.tests.forEach((item) => iterableForEach(test => test.status = "enqueued", item.testLeafs))
-    } else {
-      throw new Error("[DEV] dequeue must be handled externally")
-    }
-  }
+  private readonly statusHandler = this.reflectTestStatusInUI.bind(this)
 
   constructor ({
     allvscTests, output, controller, allTests, request
@@ -327,9 +414,13 @@ class TestRunner implements vscode.Disposable {
     this.queue = [...this.tests]
     this.allvscTests = allvscTests
     this.output = output
-    this.statusHandler = this.reflectTestsStatusInUI.bind(this)
+    this.statusHandler = this.reflectTestStatusInUI.bind(this)
 
     this.tests.forEach(test => test.on("status", this.statusHandler))
+  }
+
+  public markAsEnqueued () {
+    this.tests.forEach((item) => iterableForEach(test => test.status = "enqueued", item.testLeafs))
   }
 
   public cancel () {
@@ -359,12 +450,15 @@ class TestRunner implements vscode.Disposable {
   }
 
   public reflectCurrentTestsStatusInUI () {
-    this.tests.forEach(test => iterableForEach(this.statusHandler, test))
+    this.tests.forEach(test => iterableForEach(item => this.statusHandler(item, item.status), test))
   }
 
-  public reflectTestsStatusInUI (test: TestItem) {
+  private reflectTestStatusInUI (test: TestItem, status: TestStatus) {
+    if (test.isComposite) {
+      return
+    }
+
     const testid = test.gid
-    const status = test.status
     const vscTest = this.allvscTests.get(testid)!
 
     const appendStatus = () => {
@@ -397,7 +491,7 @@ class TestRunner implements vscode.Disposable {
   }
 
   includes (testid: string): boolean {
-    return !!this.tests.find(test => !!test.lookup(testid))
+    return !!this.tests.find(test => !!test.lookup({ by: "testid", search: testid }))
   }
 
   dispose() {
@@ -409,7 +503,7 @@ class TestRunner implements vscode.Disposable {
 
 const tovscTestItem = TestItem.createMapper<vscode.TestItem, { tags: vscode.TestTag[], controller: PintosTestController }>((test, fn, { controller, tags: parentTags }) => {
   controller.allTests.set(test.gid, test)
-  const vscTest = controller.createTestItem(test.gid, test.name)
+  const vscTest: vscode.TestItem = controller.createTestItem(test.gid, test.name)
   const tags: vscode.TestTag[] = [{ id: `#${test.phase}` }]
 
   if (test.isComposite) {
@@ -419,9 +513,12 @@ const tovscTestItem = TestItem.createMapper<vscode.TestItem, { tags: vscode.Test
     tags.push(...parentTags, { id: test.gid }, { id: test.id })
   }
   vscTest.tags = tags
+  vscTest.description = vsctestDescription(test.backless)
 
   test.children.map(item => item.map(fn, { tags: parentTags, controller: controller })).forEach(child => vscTest.children.add(child))
   controller.allvscTests.set(test.gid, vscTest)
 
   return vscTest
 })
+
+const vsctestDescription = (backless: boolean) => backless ? "(backless)" : ""

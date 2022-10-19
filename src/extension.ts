@@ -17,6 +17,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("pintos.setupDevContainer", createScopedHandler(setupDevContainer, output)),
     vscode.commands.registerCommand("pintos.checkHealth", createScopedHandler(checkPintosHealth, output)),
   )
+
   vscode.commands.executeCommand("setContext", "pintos.active", true)
 
   const workspaceDir = getCurrentWorkspaceUri().fsPath

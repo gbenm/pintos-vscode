@@ -1,8 +1,9 @@
 import { ChildProcessWithoutNullStreams } from "node:child_process"
 import { EventEmitter } from "node:events"
-import { join as joinPath, resolve as resolvePath } from "node:path"
+import { dirname, join as joinPath, resolve as resolvePath } from "node:path"
 import { OptionalPromiseLike, OutputChannel } from "../types"
 import { iterableForEach, prop } from "../utils/fp/common"
+import { existsfile, rmfile } from "./utils"
 
 export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skipped", "unknown"]
 
@@ -16,6 +17,9 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
 
   public readonly makefileTarget: string
   public readonly resultFile: string
+  public readonly errorsFile: string
+  public readonly outputFile: string
+  public beforeRun?: BeforeRunEvent = undefined
 
   private readonly _run: TestRunner
   private _status: TestStatus = "unknown"
@@ -63,6 +67,7 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     run: TestRunner
     makefileTarget?: string
     resultFile?: string
+    beforeRun?: BeforeRunEvent
   }) {
     super()
     this._run = test.run
@@ -74,6 +79,9 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     this.phase = test.phase
     this.makefileTarget = test.makefileTarget || joinPath(test.basePath, test.name.concat(".result"))
     this.resultFile = test.resultFile || resolvePath(this.makefileTarget)
+    this.errorsFile = joinPath(dirname(this.resultFile), this.name.concat(".errors"))
+    this.outputFile = joinPath(dirname(this.resultFile), this.name.concat(".output"))
+    this.beforeRun = test.beforeRun
 
     this.children.forEach(item => item.on("status", this.onChangeChildStatus.bind(this)))
   }
@@ -120,8 +128,30 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     return status
   }
 
+  public async removeFiles () {
+    if (this.isComposite) {
+      await Promise.all(Array.from(this.testLeafs, test => test.removeFiles()))
+    } else {
+      await rmfile(this.resultFile)
+      await rmfile(this.errorsFile)
+      await rmfile(this.outputFile)
+    }
+  }
+
+  public async existsResultFile (): Promise<boolean> {
+    if (this.isComposite) {
+      const results = await Promise.all(Array.from(this.testLeafs, test => test.existsResultFile()))
+      return results.reduce((a, b) => a && b, true)
+    }
+    return await existsfile(this.resultFile)
+  }
+
   public async run(output?: OutputChannel): Promise<TestStatus> {
     if (!this.runBlocked) {
+      const omit = !await this.beforeRun?.(this, output)
+      if (omit) {
+        return "unknown"
+      }
       return await this._run(this, output)
     } else {
       this.runBlocked = false
@@ -212,6 +242,8 @@ export type TestItemEvent = "status"
 export type TestItemMapper<T, C = any> = (item: TestItem, map: TestItemMapper<T, C>, context: C) => T
 
 export type TestRunner = (item: TestItem, output?: OutputChannel) => OptionalPromiseLike<TestStatus>
+
+export type BeforeRunEvent = (item: TestItem, output?: OutputChannel) => OptionalPromiseLike<boolean>
 
 export type TestStatus = "passed"
   | "failed"

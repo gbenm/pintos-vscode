@@ -4,7 +4,7 @@ import { TestItem } from "../core/grade/TestItem"
 import { childProcessToPromise, scopedCommand, ScopedCommandExecutor } from "../core/launch"
 import { getCurrentWorkspaceUri, pickOptions, showStopMessage, createScopedHandler } from "./utils"
 import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, onMissingTestDir, splitTestId } from "../core/grade/utils"
-import { iterableForEach, iterLikeTolist, prop, waitForEach, waitMap } from "../core/utils/fp/common"
+import { bind, iterableForEach, iterLikeTolist, prop, waitForEach, waitMap } from "../core/utils/fp/common"
 import { OutputChannel } from "../core/types"
 import { cleanAndCompilePhase } from "../core/grade/compile"
 import { setStatusFromResultFile } from "../core/grade/run"
@@ -162,11 +162,15 @@ export default class PintosTestController extends TestController {
   }): Promise<PintosTestController> {
     const controller = new PintosTestController(descriptor.phases)
     controller.output = descriptor.output
+    const fns = bind(controller)
 
     const tests = await controller.discoverTests()
     controller.rootTests = tests
 
     tests.forEach((test, i) => {
+      test.children.forEach((subtest) => {
+        iterableForEach(item => item.beforeRun = fns.beforeRunTests, subtest)
+      })
       const vscTest = test.map(tovscTestItem, {
         controller,
         tags: []
@@ -178,6 +182,34 @@ export default class PintosTestController extends TestController {
     controller.reflectCurrentTestsStatusInUI()
 
     return controller
+  }
+
+  public async beforeRunTests(item: TestItem) {
+    if (await item.existsResultFile()) {
+      try {
+        const [cancel] = await pickOptions({
+          title: "Do you want to re-run the test?",
+          options: [
+            { label: "Re run the test", cancel: false },
+            { label: "Cancel", cancel: true }
+          ],
+          mapFn: option => option.cancel
+        })
+        console.log(`cancel? ${cancel}`)
+
+        if (cancel) {
+          return false
+        } else {
+          await item.removeFiles()
+          return true
+        }
+      } catch (e) {
+        console.log(`${e}`)
+        return false
+      }
+    }
+
+    return true
   }
 
   public reflectCurrentTestsStatusInUI () {

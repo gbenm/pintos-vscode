@@ -37,29 +37,31 @@ export function getUserInput({ title, placeholder, initialValue = "" }: {
   })
 }
 
-export function pickOptions<T extends vscode.QuickPickItem>({ title, options, placeholder, selectedOptions = [], canSelectMany = false }: {
+export function pickOptions<T extends vscode.QuickPickItem, K = T>({ title, options, placeholder, selectedOptions = [], canSelectMany = false, mapFn = (v => <any> v)}: {
   title: string
   options: T[]
   selectedOptions?: T[]
   placeholder?: string
   canSelectMany?: boolean
-}): Promise<T[]> {
+  mapFn?: (v: T) => K
+}): Promise<K[]> {
   const picker = vscode.window.createQuickPick()
   picker.title = title
   picker.placeholder = placeholder
   picker.canSelectMany = canSelectMany
   picker.items = options
   picker.selectedItems = selectedOptions
+  picker.ignoreFocusOut = true
   picker.show()
 
-  return new Promise((resolve, reject) => {
+  return new Promise<K[]>((resolve, reject) => {
     picker.onDidAccept(() => {
-      resolve(<T[]> picker.selectedItems)
+      resolve((<T[]> picker.selectedItems).map(mapFn))
       picker.hide()
     })
 
-    picker.onDidHide(reject)
-  })
+    picker.onDidHide(() => reject("cancel selection"))
+  }).finally(() => picker.dispose())
 }
 
 export function uriFromCurrentWorkspace (...pathSegments: string[]) {

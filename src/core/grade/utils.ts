@@ -1,4 +1,4 @@
-import { writeFileSync } from "fs"
+import { access, unlink, writeFileSync } from "fs"
 import { dirname, basename } from "path"
 import { OutputChannel } from "vscode"
 import { childProcessToPromise } from "../launch"
@@ -29,5 +29,29 @@ export async function onMissingTestDir ({ phase, output }: { phase?: string, out
     onData (buffer: Buffer) {
       output?.append(buffer.toString())
     }
+  })
+}
+
+export function rmfile(file: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    unlink(file, (error) => {
+      if (error) {
+        reject(error)
+      } else {
+        resolve()
+      }
+    })
+  })
+}
+
+export function existsfile(file: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    access(file, (error) => {
+      if (error) {
+        resolve(false)
+      } else {
+        resolve(true)
+      }
+    })
   })
 }

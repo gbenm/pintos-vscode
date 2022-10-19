@@ -149,7 +149,7 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
   public async run(output?: OutputChannel): Promise<TestStatus> {
     if (!this.runBlocked) {
       const omit = !await this.beforeRun?.(this, output)
-      if (omit) {
+      if (omit && this.beforeRun) {
         return "unknown"
       }
       return await this._run(this, output)

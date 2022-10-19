@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { OptionalPromise } from "../core/types"
 import { handleError } from "./errors"
 import { scopedCommand } from "../core/launch"
+import { promise } from "../core/utils"
 
 export function parseUri(path: string, ...pathSegments: string[]) {
   return vscode.Uri.parse(join(path, ...pathSegments))
@@ -23,7 +24,7 @@ export function getUserInput({ title, placeholder, initialValue = "" }: {
   input.value = initialValue
   input.show()
 
-  return new Promise((resolve, reject) => {
+  return freeResource(promise((resolve, reject) => {
     input.onDidAccept(() => {
       if (!input.value.trim()) {
         return
@@ -34,7 +35,7 @@ export function getUserInput({ title, placeholder, initialValue = "" }: {
     })
 
     input.onDidHide(reject)
-  })
+  }), input)
 }
 
 export function pickOptions<T extends vscode.QuickPickItem, K = T>({ title, options, placeholder, selectedOptions = [], canSelectMany = false, mapFn = (v => <any> v)}: {
@@ -54,14 +55,22 @@ export function pickOptions<T extends vscode.QuickPickItem, K = T>({ title, opti
   picker.ignoreFocusOut = true
   picker.show()
 
-  return new Promise<K[]>((resolve, reject) => {
+  return freeResource(promise((resolve, reject) => {
     picker.onDidAccept(() => {
       resolve((<T[]> picker.selectedItems).map(mapFn))
       picker.hide()
     })
 
     picker.onDidHide(() => reject("cancel selection"))
-  }).finally(() => picker.dispose())
+  }), picker)
+}
+
+export async function freeResource <T>(promise: Promise<T>, resource: vscode.Disposable): Promise<T> {
+  try {
+    return await promise
+  } finally {
+    resource.dispose()
+  }
 }
 
 export function uriFromCurrentWorkspace (...pathSegments: string[]) {

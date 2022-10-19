@@ -1,4 +1,4 @@
-import { ChildProcessWithoutNullStreams, execSync, spawn } from "node:child_process"
+import { ChildProcess, ChildProcessWithoutNullStreams, execSync, spawn } from "node:child_process"
 import { ensureSingleValue } from "../utils/fp/arrays"
 import { OptionalPromise, OptionalPromiseLike, OutputChannel } from "../types"
 import { buildSingleCommand } from "./utils"
@@ -111,6 +111,7 @@ export function spawnCommand({ cmd, args, cwd, env = {} }: {
   return child
 }
 
+export function childProcessToPromise(process: ChildProcessWithoutNullStreams): Promise<Buffer>
 export function childProcessToPromise({ process }: {
   process: ChildProcessWithoutNullStreams
 }): Promise<Buffer>
@@ -118,10 +119,19 @@ export function childProcessToPromise({ process, onData }: {
   process: ChildProcessWithoutNullStreams
   onData: (data: Buffer) => void
 }): Promise<void>
-export function childProcessToPromise({ process, onData }: {
+export function childProcessToPromise(args: {
   process: ChildProcessWithoutNullStreams,
   onData?: (data: Buffer) => void
-}): Promise<void | Buffer> {
+} | ChildProcessWithoutNullStreams): Promise<void | Buffer> {
+  let process: ChildProcessWithoutNullStreams
+  let onData: ((data: Buffer) => void) | undefined
+  if (args instanceof ChildProcess) {
+    process = <ChildProcessWithoutNullStreams> args
+    onData = undefined
+  } else {
+    process = args.process
+    onData = args.onData
+  }
   return new Promise((resolve, reject) => {
     if (onData) {
       process.stdout.on("data", onData)

@@ -46,13 +46,19 @@ export const notNull = <T>(item: T) => item !== null
 
 export const filtersAnd = <T, I>(...fns: FilterFn<T, I>[]): FilterFn<T, I> => (item,  index) => fns.map(fn => fn(item, index)).reduce((a, b) => a && b, true)
 
-export async function waitMap<T, K>(fn: (v: T) => Promise<K>, items: T[]): Promise<K[]> {
+export async function waitMap<T, K>(fn: (v: T) => Promise<K>, items: readonly T[]): Promise<K[]> {
   const result: K[] = []
   for (let item of items) {
     const test = await fn(item)
     result.push(test)
   }
   return result
+}
+
+export async function waitForEach<T>(fn: (v: T) => Promise<unknown>, items: readonly T[]): Promise<void> {
+  for (let item of items) {
+    await fn(item)
+  }
 }
 
 export function iterableForEach<T>(fn: (item: T, i: number) => void, iterator: Iterable<T>, skipElement?: (item: T, i: number) => boolean) {

@@ -20,31 +20,27 @@ export default async function (context: vscode.ExtensionContext, output: vscode.
 
   removeSync(localPath)
 
-  try {
-    output.appendLine("PintOS start cloning...")
-    await vscode.window.withProgress({
-        location: vscode.ProgressLocation.Notification,
-        title: "Cloning PintOS repository",
-        cancellable: false
-      },
-      () => clonePintosSnapshot({
-        localPath,
-        repoUrl,
-        outputChannel: output,
-        codeFolder
-      })
-    )
-    output.appendLine("clone done!")
-    const pintosPjUri = await mvPintosCodeToUserInputFolder({ output, localPath })
+  output.appendLine("PintOS start cloning...")
+  await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: "Cloning PintOS repository",
+      cancellable: false
+    },
+    () => clonePintosSnapshot({
+      localPath,
+      repoUrl,
+      outputChannel: output,
+      codeFolder
+    })
+  )
+  output.appendLine("clone done!")
+  const pintosPjUri = await mvPintosCodeToUserInputFolder({ output, localPath })
 
-    await vscInitPintosProject(pintosPjUri.fsPath, output)
+  await vscInitPintosProject(pintosPjUri.fsPath, output)
 
-    const action = await vscode.window.showInformationMessage("Done!. Good luck!", "open PintOS")
-    if (action === "open PintOS") {
-      vscode.commands.executeCommand("vscode.openFolder", pintosPjUri)
-    }
-  } catch (e) {
-    handleError(e)
+  const action = await vscode.window.showInformationMessage("Done!. Good luck!", "open PintOS")
+  if (action === "open PintOS") {
+    vscode.commands.executeCommand("vscode.openFolder", pintosPjUri)
   }
 }
 

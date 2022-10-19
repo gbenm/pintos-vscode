@@ -10,7 +10,6 @@ export async function runSpecificTest(item: TestItem, output?: OutputChannel): P
   }
 
   output?.appendLine(`test ${item.id}`)
-  item.status = "started"
 
   const testProcess = spawnCommand({
     cwd: item.phase,
@@ -44,7 +43,6 @@ export async function runSpecificTest(item: TestItem, output?: OutputChannel): P
 
 export async function runInnerTests(item: TestItem, output?: OutputChannel): Promise<TestStatus> {
   output?.appendLine(`test ${item.id}`)
-  iterableForEach(test => test.status = "started", item.testLeafs)
 
   await waitMap(test => test.run(output), Array.from(item.testLeafs))
 
@@ -54,7 +52,6 @@ export async function runInnerTests(item: TestItem, output?: OutputChannel): Pro
 
 export async function runPintosPhase(item: TestItem, output?: OutputChannel): Promise<TestStatus> {
   output?.appendLine(`test ${item.gid}`)
-  iterableForEach(test => test.status = "started", item.testLeafs)
 
   let status: TestStatus = "errored"
   try {
@@ -65,6 +62,8 @@ export async function runPintosPhase(item: TestItem, output?: OutputChannel): Pr
     })
 
     item.process = testProcess
+
+    iterableForEach(setStatusFromResultFile, item.testLeafs)
 
     await childProcessToPromise({
       process: testProcess,
@@ -95,12 +94,7 @@ export async function runPintosPhase(item: TestItem, output?: OutputChannel): Pr
     })
 
     if (item.isComposite) {
-      iterableForEach((test) => {
-        setStatusFromResultFile(test)
-        if (test.status === "unknown") {
-          test.status = "errored"
-        }
-      }, item.testLeafs, test => finalStates.includes(test.status))
+      iterableForEach(test => test.status = "errored", item.testLeafs, test => test.status !== "unknown" && finalStates.includes(test.status))
     } else if (testProcess.exitCode !== 0 && finalStates.includes(item.status)) {
       status = "errored"
     }

@@ -1,15 +1,11 @@
 import * as vscode from "vscode"
-import { getCurrentWorkspaceUri } from "./utils"
-import { handleError } from "./errors"
 import { executeCommand } from "../core/launch"
 
-export default async function (output: vscode.OutputChannel) {
+export default function (output: vscode.OutputChannel) {
   output.show()
   const terminal = vscode.window.createTerminal("PintOS health")
 
-  const cwd = process.cwd()
   try {
-    process.chdir(getCurrentWorkspaceUri().fsPath)
     output.appendLine(`current directory ${process.cwd()}`)
     executeCommand({
       output,
@@ -25,8 +21,5 @@ export default async function (output: vscode.OutputChannel) {
     terminal.sendText("pintos --qemu -- -q run alarm-multiple && echo 'Press enter to exit' && read && exit", true)
   } catch (e) {
     output.appendLine("fail :c")
-    handleError(e)
-  } finally {
-    process.chdir(cwd)
   }
 }

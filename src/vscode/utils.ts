@@ -1,12 +1,15 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
+import { OptionalPromise } from "../core/types"
+import { handleError } from "./errors"
+import { scopedCommand } from "../core/launch"
 
 export function parseUri(path: string, ...pathSegments: string[]) {
   return vscode.Uri.parse(join(path, ...pathSegments))
 }
 
-export function showStopMessage(output: vscode.OutputChannel) {
-  return () => output.appendLine("Stopped")
+export function showStopMessage(output?: vscode.OutputChannel) {
+  return () => output?.appendLine("Stopped")
 }
 
 export function getUserInput({ title, placeholder, initialValue = "" }: {
@@ -34,6 +37,31 @@ export function getUserInput({ title, placeholder, initialValue = "" }: {
   })
 }
 
+export function pickOptions<T extends vscode.QuickPickItem>({ title, options, placeholder, selectedOptions = [], canSelectMany = false }: {
+  title: string
+  options: T[]
+  selectedOptions?: T[]
+  placeholder?: string
+  canSelectMany?: boolean
+}): Promise<T[]> {
+  const picker = vscode.window.createQuickPick()
+  picker.title = title
+  picker.placeholder = placeholder
+  picker.canSelectMany = canSelectMany
+  picker.items = options
+  picker.selectedItems = selectedOptions
+  picker.show()
+
+  return new Promise((resolve, reject) => {
+    picker.onDidAccept(() => {
+      resolve(<T[]> picker.selectedItems)
+      picker.hide()
+    })
+
+    picker.onDidHide(reject)
+  })
+}
+
 export function uriFromCurrentWorkspace (...pathSegments: string[]) {
   const currentWorkspaceUri = getCurrentWorkspaceUri()
   return vscode.Uri.joinPath(currentWorkspaceUri, ...pathSegments)
@@ -44,4 +72,19 @@ export function getCurrentWorkspaceUri() {
   const currentFolderUri = firstWorkspace.uri
 
   return currentFolderUri
+}
+
+export function createScopedHandler<Fn extends (...args: any[]) => OptionalPromise<any>>(fn: Fn): (...args: Parameters<Fn>) => Promise<void>
+export function createScopedHandler<Fn extends (...args: any[]) => OptionalPromise<any>>(fn: Fn, ...args: Parameters<Fn>): () => Promise<void>
+export function createScopedHandler<Fn extends (...args: any[]) => OptionalPromise<any>>(fn: Fn, ...args: Parameters<Fn>): ((...args: Parameters<Fn>) => Promise<void>) | (() => Promise<void>) {
+  return async (...a: Parameters<Fn>) => {
+    try {
+      await scopedCommand({
+        cwd: getCurrentWorkspaceUri().fsPath,
+        execute: () => fn(...(args.length > 0 ? args : a))
+      })
+    } catch (e) {
+      handleError(e)
+    }
+  }
 }

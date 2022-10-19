@@ -4,7 +4,7 @@ import { ExtConfig } from "./vscode/config"
 import createPintosProject from "./vscode/createPintosProject"
 import PintosTestController from "./vscode/PintosTestController"
 import setupDevContainer from "./vscode/setupDevContainer"
-import { getCurrentWorkspaceUri } from "./vscode/utils"
+import { getCurrentWorkspaceUri, createScopedHandler } from "./vscode/utils"
 
 const output = createPintosOutputChannel()
 
@@ -13,9 +13,9 @@ export async function activate(context: vscode.ExtensionContext) {
   // vscode.commands.executeCommand("remote-containers.reopenInContainer")
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("pintos.createNewProject", () => createPintosProject(context, output)),
-    vscode.commands.registerCommand("pintos.setupDevContainer", () => setupDevContainer(output)),
-    vscode.commands.registerCommand("pintos.checkHealth", () => checkPintosHealth(output)),
+    vscode.commands.registerCommand("pintos.createNewProject", createScopedHandler(createPintosProject, context, output)),
+    vscode.commands.registerCommand("pintos.setupDevContainer", createScopedHandler(setupDevContainer, output)),
+    vscode.commands.registerCommand("pintos.checkHealth", createScopedHandler(checkPintosHealth, output)),
   )
   vscode.commands.executeCommand("setContext", "pintos.active", true)
 

@@ -2,18 +2,20 @@
 import * as assert from "assert"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { ensureLookupTestsInPhase, getTestsFromMakefile, genDiscoverMakefileContent, generateTestTree, TestTree } from "../../core/grade/lookup"
-import { TestItem, TestItemMapper, TestStatus } from "../../core/grade/TestItem"
+import { TestItem, TestStatus } from "../../core/grade/TestItem"
 import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, splitTestId } from "../../core/grade/utils"
 import { scopedCommand } from "../../core/launch"
 import { prop } from "../../core/utils/fp/common"
 
 const run = () => <TestStatus> "passed"
+const dataBuilder = () => null
 
 suite("Test Items", () => {
   test("get all tests ids", () => {
     const mainTest = new TestItem({
       id: "tests/threads",
       basePath: "build/tests/threads",
+      dataBuilder,
       children: [
         new TestItem({
           id: "tests/threads/test1",
@@ -21,6 +23,7 @@ suite("Test Items", () => {
           children: [],
           name: "test1",
           phase: "threads",
+          dataBuilder,
           run
         }),
         new TestItem({
@@ -33,6 +36,7 @@ suite("Test Items", () => {
               children: [],
               name: "test1",
               phase: "threads",
+              dataBuilder,
               run
             }),
             new TestItem({
@@ -41,11 +45,13 @@ suite("Test Items", () => {
               children: [],
               name: "test2",
               phase: "threads",
+              dataBuilder,
               run
             }),
           ],
           name: "nested",
           phase: "threads",
+          dataBuilder,
           run
         }),
         new TestItem({
@@ -54,6 +60,7 @@ suite("Test Items", () => {
           children: [],
           name: "test2",
           phase: "threads",
+          dataBuilder,
           run
         })
       ],
@@ -205,6 +212,7 @@ suite("Test Items", () => {
           getDirOf: getDirOfTest,
           getNameOf: getNameOfTest,
           splitId: splitTestId,
+          testDataBuilder: dataBuilder,
           onMissingDiscoverMakefile
         })
 
@@ -404,6 +412,7 @@ function testItemFactory ({ id, children = [] }: { id: string, children?: TestIt
     name: "1",
     basePath: "fake/path",
     phase: "fake",
-    run
+    run,
+    dataBuilder
   })
 }

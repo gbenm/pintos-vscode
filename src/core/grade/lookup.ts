@@ -4,13 +4,14 @@ import { tests } from "vscode"
 import { scopedCommand, executeCommand } from "../launch"
 import { OptionalPromiseLike } from "../types"
 import { runInnerTests, runPintosPhase, runSpecificTest, setStatusFromResultFile } from "./run"
-import { TestItem, TestRunner } from "./TestItem"
+import { TestDataBuilder, TestItem, TestRunner } from "./TestItem"
 
 const discoverMakefile = "vscTestDiscover.Makefile"
 
-export async function ensureLookupTestsInPhase({ onMissingLocation, onMissingDiscoverMakefile, splitId, generateId, getNameOf, getDirOf }: {
+export async function ensureLookupTestsInPhase<T>({ onMissingLocation, onMissingDiscoverMakefile, splitId, generateId, getNameOf, getDirOf, testDataBuilder }: {
   onMissingLocation: (location: LookupLocation) => OptionalPromiseLike<void>
   onMissingDiscoverMakefile: (discoverMakefileName: string, location: LookupLocation) => OptionalPromiseLike<void>
+  testDataBuilder: TestDataBuilder<T>,
   getDirOf: TestDirLocator
   getNameOf: (id: string) => string
   splitId: TestIdSplitter
@@ -53,6 +54,7 @@ export async function ensureLookupTestsInPhase({ onMissingLocation, onMissingDis
           getDirOf: getDirOf,
           getNameOf,
           phase,
+          testDataBuilder,
           testId: mainTestId,
           parentTestRun: runPintosPhase
         })
@@ -64,18 +66,20 @@ export async function ensureLookupTestsInPhase({ onMissingLocation, onMissingDis
         getDirOf: getDirOf,
         getNameOf,
         phase,
+        testDataBuilder,
         testId: generateId({ baseId: "pintos.error", segment: phase, phase }),
         parentTestRun: runPintosPhase
       })
   }
 }
 
-export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, parentTestRun, elseChildren }: {
+export function testItemFactory<T>({ tree, testId, phase, getDirOf, getNameOf, parentTestRun, elseChildren, testDataBuilder }: {
   tree: TestTree | null
   phase: string
   testId: string
   getDirOf: TestDirLocator
   getNameOf: (id: string) => string
+  testDataBuilder: TestDataBuilder<T>,
   parentTestRun?: TestRunner
   elseChildren?: TestItem[]
 }): TestItem {
@@ -85,6 +89,7 @@ export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, pare
       basePath: getDirOf(testId),
       name: getNameOf(testId),
       phase,
+      dataBuilder: testDataBuilder,
       children: elseChildren || [],
       run: parentTestRun || runSpecificTest
     })
@@ -101,6 +106,7 @@ export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, pare
     getDirOf: getDirOf,
     getNameOf,
     phase,
+    testDataBuilder,
     tree: tree[id],
   }))
 
@@ -114,6 +120,7 @@ export function testItemFactory({ tree, testId, phase, getDirOf, getNameOf, pare
     getNameOf,
     phase,
     testId,
+    testDataBuilder,
     elseChildren: children,
     parentTestRun: parentTestRun || runInnerTests
   })

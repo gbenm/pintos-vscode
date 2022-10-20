@@ -8,13 +8,14 @@ import { existsfile, rmfile } from "./utils"
 
 export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skipped", "unknown"]
 
-export class TestItem extends EventEmitter implements Iterable<TestItem> {
+export class TestItem<T = unknown> extends EventEmitter implements Iterable<TestItem> {
   public readonly id: string
   public readonly gid: string
   public readonly basePath: string
   public readonly phase: string
   public readonly name: string
   public readonly children: readonly TestItem[]
+  public data: T
 
   public readonly makefileTarget: string
   public readonly resultFile: string
@@ -39,6 +40,7 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     phase: string
     children: readonly TestItem[]
     run: TestRunner
+    dataBuilder: TestDataBuilder<T>
     makefileTarget?: string
     resultFile?: string
     beforeRun?: BeforeRunEvent
@@ -58,6 +60,9 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     this.beforeRun = test.beforeRun
 
     this.children.forEach(item => item.on("any", this.onChangeChild.bind(this)))
+
+    // Must execute after all
+    this.data = test.dataBuilder(this)
   }
 
   public get backless (): boolean {
@@ -328,3 +333,5 @@ export type TestStatus = "passed"
 
 /** can't change the status of TestItem */
 export class TestItemStatusFreezeError extends Error {}
+
+export type TestDataBuilder<T> = (test: TestItem) => T

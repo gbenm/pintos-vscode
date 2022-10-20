@@ -10,10 +10,9 @@ import { getCurrentWorkspaceUri, createScopedHandler } from "./vscode/utils"
 
 const output = createPintosOutputChannel()
 
-export async function activate(context: vscode.ExtensionContext) {
-  // This commands will use for container API
-  // vscode.commands.executeCommand("remote-containers.reopenInContainer")
+const platformsThatSupportFullCapabilities: NodeJS.Platform[] = ["linux", "darwin"]
 
+export async function activate(context: vscode.ExtensionContext) {
   const workspaceDir = getCurrentWorkspaceUri().fsPath
   process.env.PATH = `${process.env.PATH}:${workspaceDir}/utils`
 
@@ -33,7 +32,9 @@ export async function activate(context: vscode.ExtensionContext) {
     currentTestControllerWrapper.controller
   )
 
-  vscode.commands.executeCommand("setContext", "pintos.active", true)
+  if (platformsThatSupportFullCapabilities.includes(process.platform)) {
+    vscode.commands.executeCommand("setContext", "pintos.active", true)
+  }
 }
 
 function createPintosOutputChannel() {

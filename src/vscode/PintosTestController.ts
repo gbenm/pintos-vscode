@@ -10,6 +10,7 @@ import { cleanAndCompilePhase } from "../core/grade/compile"
 import { setStatusFromResultFile } from "../core/grade/run"
 import { executeOrStopOnError } from "./errors"
 import { existsSync } from "node:fs"
+import { ChildProcessWithoutNullStreams } from "node:child_process"
 
 export class TestController implements vscode.TestController, vscode.Disposable {
   protected vscTestController: vscode.TestController
@@ -77,9 +78,15 @@ export default class PintosTestController extends TestController {
     )
 
     this.vscTestController.refreshHandler = createScopedHandler(async (token: vscode.CancellationToken): Promise<void> => {
-      if (token.isCancellationRequested) {
-        vscode.window.showInformationMessage("Cancel the refresh request is not supported")
-      } else {
+      let currentProcess: ChildProcessWithoutNullStreams | undefined
+      let stop = false
+
+      token.onCancellationRequested(() => {
+        currentProcess?.kill()
+        stop = true
+      })
+
+      if (!token.isCancellationRequested) {
         const selectedOptions = await executeOrStopOnError({
           message: "Nothing to rebuild",
           execute: () => pickOptions({
@@ -96,32 +103,49 @@ export default class PintosTestController extends TestController {
         const targets = selectedOptions.map(prop("label"))
 
         const testTargets = this.rootTests.filter(t => targets.includes(t.phase))
-        const restOfTests = this.rootTests.filter(t => !targets.includes(t.phase))
 
-        await this.cmdFromRootProject(() => waitForEach(async (rootTest) => {
-          this.output?.show()
-          this.output?.appendLine(`[BEGIN] clean and build ${rootTest.phase}\n`)
+        const vsctests: vscode.TestItem[] = []
 
-          await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            cancellable: false,
-            title: `Rebuild ${rootTest.phase}`
-          }, () => childProcessToPromise({
-            process: cleanAndCompilePhase(rootTest.phase),
-            onData: (buffer: Buffer) => {
-              this.output?.append(buffer.toString())
+        testTargets.forEach(rootTest => iterableForEach(test => {
+          const vsctest = test.data
+          vsctest.busy = true
+          vsctests.push(vsctest)
+          return vsctest
+        }, rootTest))
+
+        try {
+          await this.cmdFromRootProject(() => waitForEach(async (rootTest) => {
+            if (stop) {
+              return
             }
-          }))
 
-          this.output?.appendLine(`[END] build ${rootTest.phase}\n`)
-        }, testTargets))
+            this.output?.show()
+            this.output?.appendLine(`[BEGIN] clean and build ${rootTest.phase}\n`)
+
+            currentProcess = cleanAndCompilePhase(rootTest.phase)
+
+            await vscode.window.withProgress({
+              location: vscode.ProgressLocation.Notification,
+              cancellable: false,
+              title: `Rebuild ${rootTest.phase}`
+            }, () => {
+              return childProcessToPromise({
+                process: currentProcess!,
+                onData: (buffer: Buffer) => {
+                  this.output?.append(buffer.toString())
+                }
+              })
+            })
+
+            this.output?.appendLine(`[END] build ${rootTest.phase}\n`)
+          }, testTargets))
+        } finally {
+          vsctests.forEach(t => t.busy = false)
+        }
 
         await vscode.commands.executeCommand("testing.clearTestResults")
         testTargets.forEach(
           (toClean) => iterableForEach(item => item.status = "unknown", toClean.testLeafs)
-        )
-        restOfTests.forEach(
-          (rootTest) => iterableForEach(test => setStatusFromResultFile(test), rootTest.testLeafs)
         )
         this.reflectCurrentTestsStatusInUI()
       }
@@ -341,8 +365,8 @@ class TestRunner implements vscode.Disposable {
   private readonly testRun: vscode.TestRun
   private readonly output?: OutputChannel
 
-  private queue: TestItem[]
-  private currentProcess: TestItem | null = null
+  private queue: TestItem<vscode.TestItem>[]
+  private currentProcess: TestItem<vscode.TestItem> | null = null
 
   private readonly statusHandler = this.reflectTestStatusInUI.bind(this)
 
@@ -477,6 +501,7 @@ class PintosTestsFsWatcher implements vscode.Disposable {
 
   private backlessHandler = this.changeDescriptionOf.bind(this)
   private statusHandler = this.addToUpdateTests.bind(this)
+  private renderKey = 0
 
   constructor (args: {
     folders: vscode.WorkspaceFolder[]
@@ -536,7 +561,7 @@ class PintosTestsFsWatcher implements vscode.Disposable {
 
   public changeDescriptionOf (item: TestItem<vscode.TestItem>, backless: boolean) {
     const vsctest = item.data
-    vsctest.description = Date.now().toString()
+    vsctest.description = (this.renderKey++).toString()
     vsctest.description = vsctestDescription(backless)
   }
 

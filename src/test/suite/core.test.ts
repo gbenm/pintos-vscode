@@ -341,10 +341,7 @@ suite("Test Items", () => {
         { id: "2", status: "enqueued" },
         { id: "1", status: "enqueued" },
         { id: "4", status: "enqueued" },
-        { id: "2", status: "enqueued" },
-        { id: "1", status: "enqueued" },
         { id: "5", status: "enqueued" },
-        { id: "1", status: "enqueued" },
 
         { id: "3", status: "started" },
         { id: "2", status: "started" },

@@ -191,10 +191,11 @@ export default class PintosTestController extends TestController {
       }
 
       try {
+        const pluralsMsg = item.isComposite ? "results" : "result"
         const [cancel] = await pickOptions({
-          title: `Do you want to re run ${item.name}`,
+          title: `Do you want to re run "${item.name}"`,
           options: [
-            { label: "Re run the test", cancel: false },
+            { label: `Clean the ${pluralsMsg} and run`, cancel: false },
             { label: "Cancel", cancel: true }
           ],
           mapFn: option => option.cancel

@@ -3,6 +3,7 @@ import checkPintosHealth from "./vscode/checkPintosHealth"
 import { Config } from "./vscode/config"
 import createPintosProject from "./vscode/createPintosProject"
 import PintosTestController from "./vscode/PintosTestController"
+import resetTestController from "./vscode/resetTestController"
 import setupDevContainer from "./vscode/setupDevContainer"
 import { getCurrentWorkspaceUri, createScopedHandler } from "./vscode/utils"
 
@@ -15,14 +16,19 @@ export async function activate(context: vscode.ExtensionContext) {
   const workspaceDir = getCurrentWorkspaceUri().fsPath
   process.env.PATH = `${process.env.PATH}:${workspaceDir}/utils`
 
+  const currentTestControllerWrap = {
+    controller: await PintosTestController.create({
+      phases: Config.pintosPhases,
+      output
+    })
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand("pintos.createNewProject", createScopedHandler(createPintosProject, context, output)),
     vscode.commands.registerCommand("pintos.setupDevContainer", createScopedHandler(setupDevContainer, output)),
     vscode.commands.registerCommand("pintos.checkHealth", createScopedHandler(checkPintosHealth, output)),
-    await PintosTestController.create({
-      phases: Config.pintosPhases,
-      output
-    })
+    vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, context, output, currentTestControllerWrap)),
+    currentTestControllerWrap.controller
   )
 
   vscode.commands.executeCommand("setContext", "pintos.active", true)

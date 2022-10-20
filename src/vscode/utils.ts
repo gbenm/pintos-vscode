@@ -99,3 +99,12 @@ export function createScopedHandler<Fn extends (...args: any[]) => OptionalPromi
     }
   }
 }
+
+export async function existsInWorkspace(...relativePath: string[]) {
+  try {
+    await vscode.workspace.fs.stat(uriFromCurrentWorkspace(...relativePath))
+    return true
+  } catch {
+    return false
+  }
+}

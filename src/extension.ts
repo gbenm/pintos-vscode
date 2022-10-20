@@ -1,5 +1,4 @@
 import * as vscode from "vscode"
-import { existsSync } from "node:fs"
 import checkPintosHealth from "./vscode/checkPintosHealth"
 import { Config } from "./vscode/config"
 import createPintosProject from "./vscode/createPintosProject"
@@ -7,7 +6,7 @@ import PintosTestController from "./vscode/PintosTestController"
 import reflectTestsStatusFromResultFiles from "./vscode/reflectTestsStatusFromResultFiles"
 import resetTestController from "./vscode/resetTestController"
 import setupDevContainer from "./vscode/setupDevContainer"
-import { getCurrentWorkspaceUri, createScopedHandler } from "./vscode/utils"
+import { getCurrentWorkspaceUri, createScopedHandler, uriFromCurrentWorkspace, existsInWorkspace } from "./vscode/utils"
 
 const output = createPintosOutputChannel()
 
@@ -26,7 +25,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   vscode.commands.executeCommand("setContext", "pintos.active", true)
 
-  const pintosUtil = existsSync("utils/pintos")
+  const pintosUtil = await existsInWorkspace("utils", "pintos")
   const pintosSupported = pintosUtil && platformsThatSupportFullCapabilities.includes(process.platform)
 
   vscode.commands.executeCommand("setContext", "pintos.supported", pintosSupported)

@@ -12,24 +12,24 @@ const dataBuilder = () => null
 
 suite("Test Items", () => {
   test("get all tests ids", () => {
-    const mainTest = testItemFactory({
+    const mainTest = fakeTestItemFactory({
       id: "tests/threads",
       children: [
-        testItemFactory({
+        fakeTestItemFactory({
           id: "tests/threads/test1"
         }),
-        testItemFactory({
+        fakeTestItemFactory({
           id: "tests/threads/nested",
           children: [
-            testItemFactory({
+            fakeTestItemFactory({
               id: "tests/threads/nested/test1",
             }),
-            testItemFactory({
+            fakeTestItemFactory({
               id: "tests/threads/nested/test2"
             }),
           ],
         }),
-        testItemFactory({
+        fakeTestItemFactory({
           id: "tests/threads/test2"
         })
       ],
@@ -170,7 +170,7 @@ suite("Test Items", () => {
 
         const path = "build"
 
-        const getTestsFrom = ensureLookupTestsInPhase.bind(null, {
+        const getTestsFrom = (phase: string) => ensureLookupTestsInPhase({
           onMissingLocation({ path }) {
             throw new Error(`[Dev] ${path} is missing`)
           },
@@ -180,12 +180,9 @@ suite("Test Items", () => {
           splitId: splitTestId,
           testDataBuilder: dataBuilder,
           onMissingDiscoverMakefile
-        })
+        }, { path, phase })
 
-        const threadsTest = await getTestsFrom({
-          phase: "threads",
-          path
-        })
+        const threadsTest = await getTestsFrom("threads")
 
         const toTestTree = TestItem.createMapper<TestTree>((item, fn) => {
           if (item.isComposite) {
@@ -212,10 +209,7 @@ suite("Test Items", () => {
           }
         })
 
-        const userprogTest = await getTestsFrom({
-          phase: "userprog",
-          path
-        })
+        const userprogTest = await getTestsFrom("userprog")
 
         const userprogTestTree = userprogTest.map(toTestTree)
 
@@ -244,18 +238,18 @@ suite("Test Items", () => {
     test("listen status changes", () => {
       const statusHistory: string[] = []
 
-      const testItem3 = testItemFactory({
+      const testItem3 = fakeTestItemFactory({
         id: "3",
         children: []
       })
-      const testItem4 = testItemFactory({
+      const testItem4 = fakeTestItemFactory({
         id: "4",
         children: []
       })
-      const mainTest = testItemFactory({
+      const mainTest = fakeTestItemFactory({
         id: "1",
         children: [
-          testItemFactory({
+          fakeTestItemFactory({
             id: "2",
             children: [testItem3]
           }),
@@ -273,13 +267,13 @@ suite("Test Items", () => {
 
     test("merge status", () => {
       const statusHistory: Array<{ status: TestStatus, id: string }> = []
-      const test3 = testItemFactory({ id: "3", })
-      const test4 = testItemFactory({ id: "4" })
-      const test5 = testItemFactory({ id: "5" })
-      const mainTest = testItemFactory({
+      const test3 = fakeTestItemFactory({ id: "3", })
+      const test4 = fakeTestItemFactory({ id: "4" })
+      const test5 = fakeTestItemFactory({ id: "5" })
+      const mainTest = fakeTestItemFactory({
         id: "1",
         children: [
-          testItemFactory({
+          fakeTestItemFactory({
             id: "2",
             children: [test3, test4]
           }),
@@ -368,7 +362,7 @@ interface TestVarTreeEntry {
   tests: string[]
 }
 
-function testItemFactory ({ id, children = [] }: { id: string, children?: TestItem[] }) {
+function fakeTestItemFactory ({ id, children = [] }: { id: string, children?: TestItem[] }): TestItem {
   return new TestItem({
     id,
     children: children,

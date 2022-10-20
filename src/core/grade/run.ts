@@ -121,7 +121,7 @@ export async function runPintosPhase({ item, output }: TestRunRequest): Promise<
   }
 }
 
-export function setStatusFromResultFile(test: TestItem) {
+export function setStatusFromResultFile(test: TestItem<any>) {
   const { backless, status } = getTestStateFromResultFile(test.resultFile)
   test.status = status
   test.backless = backless

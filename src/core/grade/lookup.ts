@@ -1,4 +1,4 @@
-import { Dirent, existsSync, readFileSync } from "fs"
+import { Dirent, existsSync } from "fs"
 import { join as joinPath, resolve as resolvePath } from "path"
 import { scopedCommand, executeCommand } from "../launch"
 import { OptionalPromiseLike } from "../types"
@@ -79,7 +79,7 @@ export function testItemFactory<T>({ tree, testId, phase, getDirOf, getNameOf, p
   getDirOf: TestDirLocator
   getNameOf: (id: string) => string
   testDataBuilder: TestDataBuilder<T>,
-  parentTestRun?: TestRunner
+  parentTestRun?: TestRunner<T>
   elseChildren?: TestItem<T>[]
 }): TestItem<T> {
   if (tree === null) {

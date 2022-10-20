@@ -1,6 +1,6 @@
 import { ChildProcessWithoutNullStreams } from "node:child_process"
 import { EventEmitter } from "node:events"
-import { dirname, join as joinPath, resolve as resolvePath } from "node:path"
+import { dirname, join as joinPath } from "node:path"
 import { Fn, OptionalPromiseLike, OutputChannel } from "../types"
 import { iterableForEach, prop, waitMap } from "../utils/fp/common"
 import { and, or } from "../utils/fp/math"
@@ -8,7 +8,7 @@ import { existsfile, rmfile } from "./utils"
 
 export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skipped", "unknown"]
 
-export class TestItem<T = unknown> extends EventEmitter implements Iterable<TestItem<T>> {
+export class TestItem<T = any> extends EventEmitter implements Iterable<TestItem<T>> {
   public readonly id: string
   public readonly gid: string
   public readonly basePath: string
@@ -21,9 +21,9 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
   public readonly resultFile: string
   public readonly errorsFile: string
   public readonly outputFile: string
-  public beforeRun?: BeforeRunEvent = undefined
+  public beforeRun?: BeforeRunEvent<T> = undefined
 
-  private readonly _run: TestRunner
+  private readonly _run: TestRunner<T>
   private _status: TestStatus
   private _prevStatus: TestStatus
   private _backless: boolean
@@ -39,11 +39,11 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
     name: string
     phase: string
     children: readonly TestItem<T>[]
-    run: TestRunner
+    run: TestRunner<T>
     dataBuilder: TestDataBuilder<T>
     makefileTarget: string
     resultFile: string
-    beforeRun?: BeforeRunEvent
+    beforeRun?: BeforeRunEvent<T>
     backless?: boolean
     status?: TestStatus
   }) {
@@ -174,7 +174,7 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
     return status
   }
 
-  public emit (event: TestItemEvent, item: TestItem, change: unknown) {
+  public emit (event: TestItemEvent, item: TestItem<T>, change: unknown) {
     super.emit("any", item, change, event)
     return super.emit(event, item, change)
   }
@@ -248,8 +248,8 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
   }
 
   public lookup(
-    query: { by: "testid", search: string } | { by: "custom", search: (item: TestItem) => boolean }
-  ): TestItem | null {
+    query: { by: "testid", search: string } | { by: "custom", search: (item: TestItem<T>) => boolean }
+  ): TestItem<T> | null {
     if (query.by === "testid"  && (this.gid === query.search || this.id === query.search)) {
       return this
     } else if (query.by === "custom" && query.search(this)) {
@@ -267,24 +267,24 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
     return null
   }
 
-  public map<T, C = undefined>(fn: TestItemMapper<T, C>): T
-  public map<T, C = any>(fn: TestItemMapper<T, C>, context: C): T
-  public map<T, C = any>(fn: TestItemMapper<T, C>, context?: C): T {
+  public map<R, C = undefined>(fn: TestItemMapper<R, T, C>): R
+  public map<R, C = any>(fn: TestItemMapper<R, T, C>, context: C): R
+  public map<R, C = any>(fn: TestItemMapper<R, T, C>, context?: C): R {
     return fn(this, fn, <C> context)
   }
 
-  public static createMapper<T, C = any>(fn: TestItemMapper<T, C>): TestItemMapper<T, C> {
+  public static createMapper<I, T = any, C = any>(fn: TestItemMapper<I, T, C>): TestItemMapper<I, T, C> {
     return fn
   }
 
   /** Returns an iterable of all children who are leaves (not composite) */
-  public get testLeafs(): Iterable<TestItem> {
+  public get testLeafs(): Iterable<TestItem<T>> {
     return {
       [Symbol.iterator]: this.testLeafsIterator.bind(this)
     }
   }
 
-  private *testLeafsIterator(): Iterator<TestItem> {
+  private *testLeafsIterator(): Iterator<TestItem<T>> {
     if (this.isComposite) {
       for (let item of this.children) {
         yield* item.testLeafs
@@ -317,14 +317,14 @@ export declare interface TestItem<T> {
 
 export type TestItemEvent = "status" | "backless" | "any"
 
-export type TestItemMapper<T, C = any> = (item: TestItem, map: TestItemMapper<T, C>, context: C) => T
+export type TestItemMapper<T, I = any, C = any> = (item: TestItem<I>, map: TestItemMapper<T, I, C>, context: C) => T
 
-export type TestRunner = (request: TestRunRequest) => OptionalPromiseLike<TestStatus>
+export type TestRunner<T = any> = (request: TestRunRequest<T>) => OptionalPromiseLike<TestStatus>
 
-export type BeforeRunEvent = (request: TestRunRequest) => OptionalPromiseLike<boolean>
+export type BeforeRunEvent<T = any> = (request: TestRunRequest<T>) => OptionalPromiseLike<boolean>
 
-export interface TestRunRequest {
-  item: TestItem,
+export interface TestRunRequest<T = any> {
+  item: TestItem<T>,
   output?: OutputChannel
   [metadata: string]: unknown
 }

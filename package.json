@@ -53,15 +53,15 @@
         },
         {
           "command": "pintos.checkHealth",
-          "when": "pintos.active"
+          "when": "pintos.supported"
         },
         {
           "command": "pintos.resetTestController",
-          "when": "pintos.active"
+          "when": "pintos.supported"
         },
         {
           "command": "pintos.reflectTestsStatusFromResultFiles",
-          "when": "pintos.active"
+          "when": "pintos.supported"
         }
       ]
     },

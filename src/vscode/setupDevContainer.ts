@@ -2,7 +2,6 @@ import { existsSync } from "fs"
 import { TextEncoder } from "util"
 import * as vscode from "vscode"
 import { setupDevContainer } from "../core/containers"
-import { handleError } from "./errors"
 import { uriFromCurrentWorkspace } from "./utils"
 
 export default async function (output: vscode.OutputChannel) {

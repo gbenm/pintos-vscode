@@ -16,8 +16,20 @@ export async function activate(context: vscode.ExtensionContext) {
   const workspaceDir = getCurrentWorkspaceUri().fsPath
   process.env.PATH = `${process.env.PATH}:${workspaceDir}/utils`
 
-  const currentTestControllerWrapper = {
-    controller: await PintosTestController.create({
+  const currentTestControllerWrapper: { controller: PintosTestController | null, dispose: () => void } = {
+    controller: null,
+    dispose () {
+      this.controller?.dispose()
+    }
+  }
+
+  vscode.commands.executeCommand("setContext", "pintos.active", true)
+
+  const pintosSupported = platformsThatSupportFullCapabilities.includes(process.platform)
+  vscode.commands.executeCommand("setContext", "pintos.supported", pintosSupported)
+
+  if (pintosSupported) {
+    currentTestControllerWrapper.controller = await PintosTestController.create({
       phases: Config.pintosPhases,
       output
     })
@@ -26,15 +38,20 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("pintos.createNewProject", createScopedHandler(createPintosProject, context, output)),
     vscode.commands.registerCommand("pintos.setupDevContainer", createScopedHandler(setupDevContainer, output)),
-    vscode.commands.registerCommand("pintos.checkHealth", createScopedHandler(checkPintosHealth, output)),
-    vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, context, output, currentTestControllerWrapper)),
-    vscode.commands.registerCommand("pintos.reflectTestsStatusFromResultFiles", createScopedHandler(reflectTestsStatusFromResultFiles, currentTestControllerWrapper)),
-    currentTestControllerWrapper.controller
+    vscode.commands.registerCommand("pintos.checkHealth", createScopedHandler(checkPintosHealth, output))
   )
 
-  if (platformsThatSupportFullCapabilities.includes(process.platform)) {
-    vscode.commands.executeCommand("setContext", "pintos.active", true)
+  if (hasActiveTestController(currentTestControllerWrapper)) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, output, currentTestControllerWrapper)),
+      vscode.commands.registerCommand("pintos.reflectTestsStatusFromResultFiles", createScopedHandler(reflectTestsStatusFromResultFiles, currentTestControllerWrapper)),
+      currentTestControllerWrapper
+    )
   }
+}
+
+function hasActiveTestController (wrapper: any): wrapper is { controller: PintosTestController } {
+  return wrapper && wrapper.controller instanceof PintosTestController
 }
 
 function createPintosOutputChannel() {

@@ -47,11 +47,10 @@ export class TestController implements vscode.TestController, vscode.Disposable 
 }
 
 export default class PintosTestController extends TestController {
-  public rootTests: readonly TestItem[] = []
-  public readonly allTests: Map<string, TestItem> = new Map()
-  public readonly allvscTests: Map<string, vscode.TestItem> = new Map()
-  public runProfile: vscode.TestRunProfile
+  public readonly runProfile: vscode.TestRunProfile
 
+  private rootTests: readonly TestItem<vscode.TestItem>[] = []
+  private readonly allTests: Map<string, TestItem<vscode.TestItem>> = new Map()
   private queue: TestRunner[] = []
   private currentRunner: TestRunner | null = null
   private output?: vscode.OutputChannel
@@ -176,12 +175,8 @@ export default class PintosTestController extends TestController {
       test.children.forEach((subtest) => {
         iterableForEach(item => item.beforeRun = fns.beforeRunTests, subtest)
       })
-      const vscTest = test.map(tovscTestItem, {
-        controller,
-        tags: []
-      })
-      vscTest.label = `Phase ${i + 1} (${test.phase})`
-      controller.items.add(vscTest)
+      test.data.label = `Phase ${i + 1} (${test.phase})`
+      controller.items.add(test.data)
     })
 
     controller.reflectCurrentTestsStatusInUI()
@@ -228,7 +223,6 @@ export default class PintosTestController extends TestController {
   public createTestRunner (request: Partial<vscode.TestRunRequest> = {}) {
     const runner = new TestRunner({
       allTests: this.allTests,
-      allvscTests: this.allvscTests,
       controller: this,
       output: this.output,
       request
@@ -259,7 +253,7 @@ export default class PintosTestController extends TestController {
     return this.currentRunner?.includes(testid) || !!this.queue.find(runner => runner.includes(testid))
   }
 
-  public discoverTests(): Promise<TestItem[]> {
+  public discoverTests(): Promise<TestItem<vscode.TestItem>[]> {
     return this.cmdFromRootProject(async () => {
       const phases = this.phases
       const getTestFrom = (phase: string) => ensureLookupTestsInPhase({
@@ -275,6 +269,15 @@ export default class PintosTestController extends TestController {
         getDirOf: getDirOfTest,
         getNameOf: getNameOfTest,
         onMissingDiscoverMakefile,
+        testDataBuilder: (test: Readonly<TestItem<vscode.TestItem>>) => {
+          this.allTests.set(test.gid, <TestItem<vscode.TestItem>> test)
+          const vsctest: vscode.TestItem = this.createTestItem(test.gid, test.name)
+
+          vsctest.description = vsctestDescription(test.backless)
+
+          test.children.map(item => item.data).forEach(child => vsctest.children.add(child))
+          return vsctest
+        },
         splitId: splitTestId
       }, { path: "build", phase })
 
@@ -284,88 +287,18 @@ export default class PintosTestController extends TestController {
 
   private watchTestsFiles() {
     const folders = this.phases.map(phase => uriFromCurrentWorkspace(phase)).map(
-      uri => vscode.workspace.getWorkspaceFolder(uri)
-    )
+      uri => vscode.workspace.getWorkspaceFolder(uri)!
+    ).filter(folder => !!folder)
 
-    let currentRefreshTimeout: NodeJS.Timeout | undefined
-    let testToUpdate: TestItem[] = []
-
-    const backlessHandler = (item: TestItem, backless: boolean) => {
-      const vsctest = this.allvscTests.get(item.gid)!
-      vsctest.description = Date.now().toString()
-      vsctest.description = vsctestDescription(backless)
-    }
-
-    const updateTests = () => {
-      const testRunner = this.createTestRunner({
-        include: testToUpdate.map(({ gid }) => this.allvscTests.get(gid)!)
-      })
-      testRunner.reflectCurrentTestsStatusInUI()
-      testRunner.dispose()
-      currentRefreshTimeout = undefined
-    }
-
-    const statusHandler = (item: TestItem, status: TestStatus) => {
-      const testid = item.gid
-      const active = this.isWithinActiveTestRunners(testid)
-      if (!active && !item.isComposite) {
-        testToUpdate.push(item)
-
-        if (!currentRefreshTimeout) {
-          currentRefreshTimeout = setTimeout(updateTests, 1000)
-        }
-      }
-    }
-
-    this.rootTests.forEach(test => {
-      test.on("backless", backlessHandler)
-      test.on("status", statusHandler)
+    const watcher = new PintosTestsFsWatcher({
+      folders,
+      rootTests: this.rootTests,
+      controller: this
     })
 
-    const testWatcherDisposable = {
-      dispose: () => {
-        clearTimeout(currentRefreshTimeout)
-        this.rootTests.forEach(test => {
-          test.off("backless", backlessHandler)
-          test.off("status", statusHandler)
-        })
-      }
-    }
+    watcher.start()
 
-    this.disposables.push(testWatcherDisposable)
-
-    folders
-      .map(folder => {
-        if (!folder) {
-          return null
-        }
-
-        const pattern = new vscode.RelativePattern(folder, "**/*.result")
-        const watcher = vscode.workspace.createFileSystemWatcher(pattern)
-
-        const changeStatusOfTest = ({ fsPath }: vscode.Uri) => {
-          const test = this.findTestByResultFile(fsPath)
-          if (test) {
-            setStatusFromResultFile(test)
-          }
-        }
-
-        const notifyResultFileDeletion = ({ fsPath }: vscode.Uri) => {
-          const test = this.findTestByResultFile(fsPath)
-          if (test) {
-            test.backless = true
-            test.status = "unknown"
-          }
-        }
-
-        watcher.onDidCreate(changeStatusOfTest)
-        watcher.onDidChange(changeStatusOfTest)
-        watcher.onDidDelete(notifyResultFileDeletion)
-
-        return watcher
-      })
-      .filter(item => item !== null)
-      .forEach(diposable => this.disposables.push(diposable!))
+    this.disposables.push(watcher)
   }
 
   public isWithinActiveTestRunners(testid: string) {
@@ -402,9 +335,8 @@ export default class PintosTestController extends TestController {
 
 
 class TestRunner implements vscode.Disposable {
-  public readonly tests: readonly TestItem[]
+  public readonly tests: readonly TestItem<vscode.TestItem>[]
   private enqueued = false
-  private readonly allvscTests: ReadonlyMap<string, vscode.TestItem>
   private readonly testRun: vscode.TestRun
   private readonly output?: OutputChannel
 
@@ -414,12 +346,11 @@ class TestRunner implements vscode.Disposable {
   private readonly statusHandler = this.reflectTestStatusInUI.bind(this)
 
   constructor ({
-    allvscTests, output, controller, allTests, request
+    output, controller, allTests, request
   }: {
     request: Partial<vscode.TestRunRequest>
     controller: vscode.TestController
-    allvscTests: ReadonlyMap<string, vscode.TestItem>
-    allTests: ReadonlyMap<string, TestItem>
+    allTests: ReadonlyMap<string, TestItem<vscode.TestItem>>
     output?: OutputChannel
   }) {
     this.testRun = controller.createTestRun({
@@ -438,7 +369,6 @@ class TestRunner implements vscode.Disposable {
     const vscTests = request.include || iterLikeTolist(controller.items)
     this.tests = vscTests.map(({ id }) => allTests.get(id)!)
     this.queue = [...this.tests]
-    this.allvscTests = allvscTests
     this.output = output
     this.statusHandler = this.reflectTestStatusInUI.bind(this)
 
@@ -486,13 +416,13 @@ class TestRunner implements vscode.Disposable {
     this.tests.forEach(test => iterableForEach(item => this.statusHandler(item, item.status), test))
   }
 
-  private reflectTestStatusInUI (test: TestItem, status: TestStatus) {
+  private reflectTestStatusInUI (test: TestItem<vscode.TestItem>, status: TestStatus) {
     if (test.isComposite) {
       return
     }
 
     const testid = test.gid
-    const vscTest = this.allvscTests.get(testid)!
+    const vscTest = test.data
 
     const appendStatus = () => {
       if (!test.isComposite) {
@@ -534,24 +464,110 @@ class TestRunner implements vscode.Disposable {
 }
 
 
-const tovscTestItem = TestItem.createMapper<vscode.TestItem, { tags: vscode.TestTag[], controller: PintosTestController }>((test, fn, { controller, tags: parentTags }) => {
-  controller.allTests.set(test.gid, test)
-  const vscTest: vscode.TestItem = controller.createTestItem(test.gid, test.name)
-  const tags: vscode.TestTag[] = [{ id: `#${test.phase}` }]
+class PintosTestsFsWatcher implements vscode.Disposable {
+  public readonly folders: vscode.WorkspaceFolder[]
 
-  if (test.isComposite) {
-    vscTest.canResolveChildren = true
-    parentTags = [...parentTags, { id: test.gid }, { id: test.id }]
-  } else {
-    tags.push(...parentTags, { id: test.gid }, { id: test.id })
+  private started = false
+  private readonly disposables: vscode.Disposable[] = []
+  private readonly controller: PintosTestController
+  private readonly rootTests: readonly TestItem<vscode.TestItem>[]
+  private currentRefreshTimeout: NodeJS.Timeout | undefined
+  private testsToUpdate: TestItem<vscode.TestItem>[] = []
+
+  private backlessHandler = this.changeDescriptionOf.bind(this)
+  private statusHandler = this.addToUpdateTests.bind(this)
+
+  constructor (args: {
+    folders: vscode.WorkspaceFolder[]
+    controller: PintosTestController
+    rootTests: readonly TestItem<vscode.TestItem>[]
+  }) {
+    this.folders = args.folders
+    this.controller = args.controller
+    this.rootTests = args.rootTests
   }
-  vscTest.tags = tags
-  vscTest.description = vsctestDescription(test.backless)
 
-  test.children.map(item => item.map(fn, { tags: parentTags, controller: controller })).forEach(child => vscTest.children.add(child))
-  controller.allvscTests.set(test.gid, vscTest)
+  start () {
+    if (this.started) {
+      throw new Error("Watcher already started")
+    }
 
-  return vscTest
-})
+    this.started = true
+
+    this.rootTests.forEach(test => {
+      test.on("backless", this.backlessHandler)
+      test.on("status", this.statusHandler)
+    })
+
+    this.folders
+      .map(folder => {
+        if (!folder) {
+          return null
+        }
+
+        const pattern = new vscode.RelativePattern(folder, "**/*.result")
+        const watcher = vscode.workspace.createFileSystemWatcher(pattern)
+
+        const changeStatusOfTest = ({ fsPath }: vscode.Uri) => {
+          const test = this.controller.findTestByResultFile(fsPath)
+          if (test) {
+            setStatusFromResultFile(test)
+          }
+        }
+
+        const notifyResultFileDeletion = ({ fsPath }: vscode.Uri) => {
+          const test = this.controller.findTestByResultFile(fsPath)
+          if (test) {
+            test.backless = true
+            test.status = "unknown"
+          }
+        }
+
+        watcher.onDidCreate(changeStatusOfTest)
+        watcher.onDidChange(changeStatusOfTest)
+        watcher.onDidDelete(notifyResultFileDeletion)
+
+        return watcher
+      })
+      .filter(item => item !== null)
+      .forEach(diposable => this.disposables.push(diposable!))
+  }
+
+  public changeDescriptionOf (item: TestItem<vscode.TestItem>, backless: boolean) {
+    const vsctest = item.data
+    vsctest.description = Date.now().toString()
+    vsctest.description = vsctestDescription(backless)
+  }
+
+  public addToUpdateTests (item: TestItem<vscode.TestItem>) {
+    const testid = item.gid
+    const active = this.controller.isWithinActiveTestRunners(testid)
+    if (!active && !item.isComposite) {
+      this.testsToUpdate.push(item)
+
+      if (!this.currentRefreshTimeout) {
+        this.currentRefreshTimeout = setTimeout(this.updateStatusTestsInUI, 1000)
+      }
+    }
+  }
+
+  updateStatusTestsInUI () {
+    const testRunner = this.controller.createTestRunner({
+      include: this.testsToUpdate.map(({ data }) => data)
+    })
+    testRunner.reflectCurrentTestsStatusInUI()
+    testRunner.dispose()
+    this.currentRefreshTimeout = undefined
+  }
+
+  dispose() {
+    clearTimeout(this.currentRefreshTimeout)
+    this.rootTests.forEach(test => {
+      test.off("backless", this.backlessHandler)
+      test.off("status", this.statusHandler)
+    })
+    this.disposables.forEach(d => d.dispose())
+  }
+}
 
 const vsctestDescription = (backless: boolean) => backless ? "(backless)" : ""

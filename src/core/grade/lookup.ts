@@ -80,10 +80,10 @@ export function testItemFactory<T>({ tree, testId, phase, getDirOf, getNameOf, p
   getNameOf: (id: string) => string
   testDataBuilder: TestDataBuilder<T>,
   parentTestRun?: TestRunner
-  elseChildren?: TestItem[]
+  elseChildren?: TestItem<T>[]
 }): TestItem<T> {
   if (tree === null) {
-    const test = new TestItem({
+    const test = new TestItem<T>({
       id: testId,
       basePath: getDirOf(testId),
       name: getNameOf(testId),

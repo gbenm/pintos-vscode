@@ -8,13 +8,13 @@ import { existsfile, rmfile } from "./utils"
 
 export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skipped", "unknown"]
 
-export class TestItem<T = unknown> extends EventEmitter implements Iterable<TestItem> {
+export class TestItem<T = unknown> extends EventEmitter implements Iterable<TestItem<T>> {
   public readonly id: string
   public readonly gid: string
   public readonly basePath: string
   public readonly phase: string
   public readonly name: string
-  public readonly children: readonly TestItem[]
+  public readonly children: readonly TestItem<T>[]
   public data: T
 
   public readonly makefileTarget: string
@@ -38,7 +38,7 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
     basePath: string
     name: string
     phase: string
-    children: readonly TestItem[]
+    children: readonly TestItem<T>[]
     run: TestRunner
     dataBuilder: TestDataBuilder<T>
     makefileTarget?: string
@@ -110,7 +110,7 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
     this._process = process
   }
 
-  private onChangeChild (item: TestItem, change: unknown, event: TestItemEvent) {
+  private onChangeChild (item: TestItem<T>, change: unknown, event: TestItemEvent) {
     this.emit(event, item, change)
 
     if (this.children.includes(item)) {
@@ -288,7 +288,7 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
     }
   }
 
-  *[Symbol.iterator](): Iterator<TestItem> {
+  *[Symbol.iterator](): Iterator<TestItem<T>> {
     yield this
     for (let item of this.children) {
       yield* item
@@ -296,17 +296,17 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
   }
 }
 
-export declare interface TestItem {
-  on(event: "status", listener: (item: TestItem, status: TestStatus) => void): this
-  on(event: "backless", listener: (item: TestItem, backless: boolean) => void): this
-  on(event: "any", listener: (item: TestItem, change: unknown, event: TestItemEvent) => void): this
-  on(event: TestItemEvent, listener: (item: TestItem, change: unknown, event: TestItemEvent) => void): this
+export declare interface TestItem<T> {
+  on(event: "status", listener: (item: TestItem<T>, status: TestStatus) => void): this
+  on(event: "backless", listener: (item: TestItem<T>, backless: boolean) => void): this
+  on(event: "any", listener: (item: TestItem<T>, change: unknown, event: TestItemEvent) => void): this
+  on(event: TestItemEvent, listener: (item: TestItem<T>, change: unknown, event: TestItemEvent) => void): this
   off(event: TestItemEvent, listener: Fn): this
 
-  emit(event: "status", item: TestItem, status: TestStatus): boolean
-  emit(event: "backless", item: TestItem, backless: boolean): boolean
-  emit(event: "any", item: TestItem, change: unknown): boolean
-  emit(event: TestItemEvent, item: TestItem, change: unknown): boolean
+  emit(event: "status", item: TestItem<T>, status: TestStatus): boolean
+  emit(event: "backless", item: TestItem<T>, backless: boolean): boolean
+  emit(event: "any", item: TestItem<T>, change: unknown): boolean
+  emit(event: TestItemEvent, item: TestItem<T>, change: unknown): boolean
 }
 
 export type TestItemEvent = "status" | "backless" | "any"
@@ -334,4 +334,4 @@ export type TestStatus = "passed"
 /** can't change the status of TestItem */
 export class TestItemStatusFreezeError extends Error {}
 
-export type TestDataBuilder<T> = (test: TestItem) => T
+export type TestDataBuilder<T> = (test: TestItem<T>) => T

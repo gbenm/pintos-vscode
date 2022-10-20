@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events"
 import { dirname, join as joinPath } from "node:path"
 import { Fn, OptionalPromiseLike, OutputChannel } from "../types"
 import { iterableForEach, prop, waitMap } from "../utils/fp/common"
-import { and, or } from "../utils/fp/math"
+import { add, and, or } from "../utils/fp/math"
 import { existsfile, rmfile } from "./utils"
 
 export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skipped", "unknown"]
@@ -22,6 +22,7 @@ export class TestItem<T = any> extends EventEmitter implements Iterable<TestItem
   public readonly errorsFile: string
   public readonly outputFile: string
   public beforeRun?: BeforeRunEvent<T> = undefined
+  private lockStatus = false
 
   private readonly _run: TestRunner<T>
   private _status: TestStatus
@@ -31,6 +32,7 @@ export class TestItem<T = any> extends EventEmitter implements Iterable<TestItem
   private runBlocked: boolean = false
 
   private _process?: ChildProcessWithoutNullStreams
+  private _lastExecutionTime?: number = undefined
 
   constructor (test: {
     id: string
@@ -71,6 +73,22 @@ export class TestItem<T = any> extends EventEmitter implements Iterable<TestItem
     this.data = test.dataBuilder(this)
   }
 
+  public get lastExecutionTime (): number | undefined {
+    if (this.isComposite) {
+      return this.children.map(child => child.lastExecutionTime!).filter(time => typeof time === "number").reduce(add, 0)
+    }
+
+    return this._lastExecutionTime
+  }
+
+  public set lastExecutionTime (value) {
+    if (this.isComposite) {
+      throw new TestItemStatusFreezeError(`can't change the execution time of composite (${this.id})`)
+    }
+
+    this._lastExecutionTime = value
+  }
+
   public get backless (): boolean {
     if (this.isComposite) {
       return this.children.map(child => child.backless).reduce(or, false)
@@ -96,6 +114,10 @@ export class TestItem<T = any> extends EventEmitter implements Iterable<TestItem
   }
 
   public set status (value: TestStatus) {
+    if (this.lockStatus) {
+      return
+    }
+
     if (this.isComposite) {
       throw new TestItemStatusFreezeError(`can't change the status of composite (${this.id})`)
     }
@@ -210,20 +232,33 @@ export class TestItem<T = any> extends EventEmitter implements Iterable<TestItem
     output?: OutputChannel
     [metadata: string]: unknown
   } = {}): Promise<TestStatus> {
-    if (!this.runBlocked) {
-      const request = {
-        item: this,
-        ...context
+    let status: TestStatus = "errored"
+    this.lockStatus = true
+    try {
+      if (this.runBlocked) {
+        status = "unknown"
+      } else {
+        const request = {
+          item: this,
+          ...context
+        }
+        const omit = !await this.beforeRun?.(request)
+        if (omit && this.beforeRun) {
+          status = "unknown"
+        } else {
+          status = await this._run(request)
+        }
       }
-      const omit = !await this.beforeRun?.(request)
-      if (omit && this.beforeRun) {
-        return "unknown"
-      }
-      return await this._run(request)
-    } else {
+    } finally {
       this.runBlocked = false
-      return "unknown"
+      this.lockStatus = false
+
+      if (!this.isComposite) {
+        this.status = status
+      }
     }
+
+    return status
   }
 
   public stop(signal: NodeJS.Signals = "SIGTERM"): boolean {

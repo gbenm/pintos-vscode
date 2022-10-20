@@ -19,6 +19,7 @@ export async function runSpecificTest({ item, output }: TestRunRequest): Promise
   item.process = testProcess
 
   let status: TestStatus = "errored"
+  const startTime = Date.now()
   try {
     const result = (await childProcessToPromise({ process: testProcess })).toString()
     output?.appendLine(result)
@@ -30,12 +31,13 @@ export async function runSpecificTest({ item, output }: TestRunRequest): Promise
     } else if (fail) {
       status = "failed"
     } else {
-      setStatusFromResultFile(item)
-      if (item.status === "unknown") {
-        item.status = "errored"
+      const state = getTestStateFromResultFile(item.resultFile)
+      if (state.status === "unknown") {
+        status = "errored"
       }
     }
   } finally {
+    item.lastExecutionTime = Date.now() - startTime
     if (!finalStates.includes(item.status)) {
       item.status = status
     }

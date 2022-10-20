@@ -467,11 +467,11 @@ class TestRunner implements vscode.Disposable {
       case "errored":
       case "failed":
         appendStatus()
-        this.testRun[status](vscTest, new vscode.TestMessage("unknown error"))
+        this.testRun[status](vscTest, new vscode.TestMessage("unknown error"), test.lastExecutionTime)
         break
       case "passed":
         appendStatus()
-        this.testRun[status](vscTest)
+        this.testRun[status](vscTest, test.lastExecutionTime)
         break
       case "unknown":
         // NOTE: "unknown" preserves the previous status
@@ -539,7 +539,7 @@ class PintosTestsFsWatcher implements vscode.Disposable {
 
         const changeStatusOfTest = ({ fsPath }: vscode.Uri) => {
           const test = this.controller.findTestByResultFile(fsPath)
-          if (test) {
+          if (test && !this.controller.isWithinActiveTestRunners(test.id)) {
             setStatusFromResultFile(test)
           }
         }
@@ -569,9 +569,7 @@ class PintosTestsFsWatcher implements vscode.Disposable {
   }
 
   public addToUpdateTests (item: TestItem<vscode.TestItem>) {
-    const testid = item.gid
-    const active = this.controller.isWithinActiveTestRunners(testid)
-    if (!active && !item.isComposite) {
+    if (!item.isComposite) {
       this.testsToUpdate.push(item)
 
       if (!this.currentRefreshTimeout) {

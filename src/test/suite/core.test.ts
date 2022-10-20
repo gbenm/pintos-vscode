@@ -12,61 +12,27 @@ const dataBuilder = () => null
 
 suite("Test Items", () => {
   test("get all tests ids", () => {
-    const mainTest = new TestItem({
+    const mainTest = testItemFactory({
       id: "tests/threads",
-      basePath: "build/tests/threads",
-      dataBuilder,
       children: [
-        new TestItem({
-          id: "tests/threads/test1",
-          basePath: "build/tests/threads",
-          children: [],
-          name: "test1",
-          phase: "threads",
-          dataBuilder,
-          run
+        testItemFactory({
+          id: "tests/threads/test1"
         }),
-        new TestItem({
+        testItemFactory({
           id: "tests/threads/nested",
-          basePath: "build/tests/threads",
           children: [
-            new TestItem({
+            testItemFactory({
               id: "tests/threads/nested/test1",
-              basePath: "build/tests/threads/nested",
-              children: [],
-              name: "test1",
-              phase: "threads",
-              dataBuilder,
-              run
             }),
-            new TestItem({
-              id: "tests/threads/nested/test2",
-              basePath: "build/tests/threads/nested",
-              children: [],
-              name: "test2",
-              phase: "threads",
-              dataBuilder,
-              run
+            testItemFactory({
+              id: "tests/threads/nested/test2"
             }),
           ],
-          name: "nested",
-          phase: "threads",
-          dataBuilder,
-          run
         }),
-        new TestItem({
-          id: "tests/threads/test2",
-          basePath: "build/tests/threads",
-          children: [],
-          name: "test2",
-          phase: "threads",
-          dataBuilder,
-          run
+        testItemFactory({
+          id: "tests/threads/test2"
         })
       ],
-      name: "threads",
-      phase: "threads",
-      run
     })
 
     assert.deepEqual(
@@ -410,6 +376,8 @@ function testItemFactory ({ id, children = [] }: { id: string, children?: TestIt
     basePath: "fake/path",
     phase: "fake",
     run,
-    dataBuilder
+    dataBuilder,
+    makefileTarget: "fake",
+    resultFile: "fake.result"
   })
 }

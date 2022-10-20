@@ -24,10 +24,10 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
   public beforeRun?: BeforeRunEvent = undefined
 
   private readonly _run: TestRunner
-  private _status: TestStatus = "unknown"
-  private _prevStatus: TestStatus = "unknown"
-  private _backless: boolean = true
-  private _prevBackless: boolean = true
+  private _status: TestStatus
+  private _prevStatus: TestStatus
+  private _backless: boolean
+  private _prevBackless: boolean
   private runBlocked: boolean = false
 
   private _process?: ChildProcessWithoutNullStreams
@@ -41,9 +41,11 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
     children: readonly TestItem<T>[]
     run: TestRunner
     dataBuilder: TestDataBuilder<T>
-    makefileTarget?: string
-    resultFile?: string
+    makefileTarget: string
+    resultFile: string
     beforeRun?: BeforeRunEvent
+    backless?: boolean
+    status?: TestStatus
   }) {
     super()
     this._run = test.run
@@ -53,11 +55,15 @@ export class TestItem<T = unknown> extends EventEmitter implements Iterable<Test
     this.name = test.name
     this.children = test.children
     this.phase = test.phase
-    this.makefileTarget = test.makefileTarget || joinPath(test.basePath, test.name.concat(".result"))
-    this.resultFile = test.resultFile || resolvePath(this.makefileTarget)
+    this.makefileTarget = test.makefileTarget
+    this.resultFile = test.resultFile
     this.errorsFile = joinPath(dirname(this.resultFile), this.name.concat(".errors"))
     this.outputFile = joinPath(dirname(this.resultFile), this.name.concat(".output"))
     this.beforeRun = test.beforeRun
+    this._status = test.status || "unknown"
+    this._prevStatus = this._status
+    this._backless = typeof test.backless === "boolean" ? test.backless : true
+    this._prevBackless = this._backless
 
     this.children.forEach(item => item.on("any", this.onChangeChild.bind(this)))
 
@@ -334,4 +340,4 @@ export type TestStatus = "passed"
 /** can't change the status of TestItem */
 export class TestItemStatusFreezeError extends Error {}
 
-export type TestDataBuilder<T> = (test: TestItem<T>) => T
+export type TestDataBuilder<T> = (test: Readonly<TestItem<T>>) => T

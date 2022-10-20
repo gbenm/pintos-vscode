@@ -1,9 +1,9 @@
 import { Dirent, existsSync, readFileSync } from "fs"
-import { join as joinPath } from "path"
+import { join as joinPath, resolve as resolvePath } from "path"
 import { scopedCommand, executeCommand } from "../launch"
 import { OptionalPromiseLike } from "../types"
-import { runInnerTests, runPintosPhase, runSpecificTest, setStatusFromResultFile } from "./run"
-import { TestDataBuilder, TestItem, TestRunner } from "./TestItem"
+import { getTestStateFromResultFile, runInnerTests, runPintosPhase, runSpecificTest, setStatusFromResultFile } from "./run"
+import { TestDataBuilder, TestItem, TestRunner, TestStatus } from "./TestItem"
 
 const discoverMakefile = "vscTestDiscover.Makefile"
 
@@ -83,19 +83,33 @@ export function testItemFactory<T>({ tree, testId, phase, getDirOf, getNameOf, p
   elseChildren?: TestItem<T>[]
 }): TestItem<T> {
   if (tree === null) {
+    const basePath = getDirOf(testId)
+    const name = getNameOf(testId)
+    const makefileTarget = joinPath(basePath, name.concat(".result"))
+    const resultFile = resolvePath(makefileTarget)
+    const children = elseChildren || []
+    let status: TestStatus = "unknown"
+    let backless = true
+
+    if (children.length === 0) {
+      const state = getTestStateFromResultFile(resultFile)
+      status = state.status
+      backless = state.backless
+    }
+
     const test = new TestItem<T>({
       id: testId,
-      basePath: getDirOf(testId),
-      name: getNameOf(testId),
+      name,
+      basePath,
+      makefileTarget,
+      resultFile,
+      status,
+      backless,
+      children,
       phase,
       dataBuilder: testDataBuilder,
-      children: elseChildren || [],
       run: parentTestRun || runSpecificTest
     })
-
-    if (!test.isComposite) {
-      setStatusFromResultFile(test)
-    }
 
     return test
   }

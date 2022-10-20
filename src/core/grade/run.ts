@@ -119,22 +119,29 @@ export async function runPintosPhase({ item, output }: TestRunRequest): Promise<
 }
 
 export function setStatusFromResultFile(test: TestItem) {
-  if (existsSync(test.resultFile)) {
-    const content = readFileSync(test.resultFile).toString()
+  const { backless, status } = getTestStateFromResultFile(test.resultFile)
+  test.status = status
+  test.backless = backless
+}
+
+export function getTestStateFromResultFile (file: string) {
+  const exists = existsSync(file)
+  let status: TestStatus = "unknown"
+
+  if (exists) {
+    const content = readFileSync(file).toString()
     const [_, pass, fail] = content.match(/(^pass)|(^fail)/mi) || []
 
     if (pass) {
-      test.status = "passed"
+      status = "passed"
     } else if (fail) {
-      test.status = "failed"
+      status = "failed"
     } else {
-      test.status = "errored"
+      status = "errored"
     }
-    test.backless = false
-  } else {
-    test.backless = true
-    test.status = "unknown"
   }
+
+  return { status, backless: !exists }
 }
 
 function extractTestName(match: string): string | null {

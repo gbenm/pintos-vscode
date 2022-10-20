@@ -31,6 +31,9 @@ export async function runSpecificTest({ item, output }: TestRunRequest): Promise
       status = "failed"
     } else {
       setStatusFromResultFile(item)
+      if (item.status === "unknown") {
+        item.status = "errored"
+      }
     }
   } finally {
     if (!finalStates.includes(item.status)) {

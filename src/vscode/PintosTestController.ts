@@ -446,7 +446,6 @@ class TestRunner implements vscode.Disposable {
       return
     }
 
-    const testid = test.gid
     const vscTest = test.data
 
     const appendStatus = () => {

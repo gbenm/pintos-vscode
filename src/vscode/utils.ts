@@ -22,6 +22,7 @@ export function getUserInput({ title, placeholder, initialValue = "" }: {
   input.title = title
   input.placeholder = placeholder
   input.value = initialValue
+  input.ignoreFocusOut = true
   input.show()
 
   return freeResource(promise((resolve, reject) => {

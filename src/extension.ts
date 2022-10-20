@@ -1,4 +1,5 @@
 import * as vscode from "vscode"
+import { existsSync } from "node:fs"
 import checkPintosHealth from "./vscode/checkPintosHealth"
 import { Config } from "./vscode/config"
 import createPintosProject from "./vscode/createPintosProject"
@@ -25,7 +26,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
   vscode.commands.executeCommand("setContext", "pintos.active", true)
 
-  const pintosSupported = platformsThatSupportFullCapabilities.includes(process.platform)
+  const pintosUtil = existsSync("utils/pintos")
+  const pintosSupported = pintosUtil && platformsThatSupportFullCapabilities.includes(process.platform)
+
   vscode.commands.executeCommand("setContext", "pintos.supported", pintosSupported)
 
   if (pintosSupported) {

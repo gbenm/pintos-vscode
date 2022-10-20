@@ -6,8 +6,9 @@ const defaultDevcontainerFileContent = `{
 	"name": "PintOS",
 	"dockerComposeFile": "./docker-compose.yml",
 	"service": "pintos",
-	"workspaceFolder": "/root/pintos",
-	"shutdownAction": "stopCompose"
+	"workspaceFolder": "/pintos",
+	"shutdownAction": "stopCompose",
+	"remoteUser": "pintos"
 }
 `
 
@@ -17,8 +18,8 @@ services:
   pintos:
     image: "gbenm/pintos"
     volumes:
-      - ..:/root/pintos
-      - ../pintos-docker:/root/host
+      - ..:/pintos
+      - ../container:/host
     command: tail -F anything
 `
 

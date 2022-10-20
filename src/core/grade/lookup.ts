@@ -1,6 +1,5 @@
 import { Dirent, existsSync, readFileSync } from "fs"
 import { join as joinPath } from "path"
-import { tests } from "vscode"
 import { scopedCommand, executeCommand } from "../launch"
 import { OptionalPromiseLike } from "../types"
 import { runInnerTests, runPintosPhase, runSpecificTest, setStatusFromResultFile } from "./run"
@@ -16,7 +15,7 @@ export async function ensureLookupTestsInPhase<T>({ onMissingLocation, onMissing
   getNameOf: (id: string) => string
   splitId: TestIdSplitter
   generateId: TestIdGen
-}, location: LookupLocation): Promise<TestItem> {
+}, location: LookupLocation): Promise<TestItem<T>> {
   const { path, phase } = location
 
   try {
@@ -82,7 +81,7 @@ export function testItemFactory<T>({ tree, testId, phase, getDirOf, getNameOf, p
   testDataBuilder: TestDataBuilder<T>,
   parentTestRun?: TestRunner
   elseChildren?: TestItem[]
-}): TestItem {
+}): TestItem<T> {
   if (tree === null) {
     const test = new TestItem({
       id: testId,

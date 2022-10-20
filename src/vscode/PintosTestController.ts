@@ -256,6 +256,10 @@ export default class PintosTestController extends TestController {
     return runner
   }
 
+  public copyTestsStatusFromResultFiles () {
+    this.rootTests.forEach((rootTest) => iterableForEach(test => setStatusFromResultFile(test), rootTest.testLeafs))
+  }
+
   public enqueue(runner: TestRunner) {
     if (this.isEnqueued(runner)) {
       runner.dispose()

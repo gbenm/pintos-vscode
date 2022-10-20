@@ -3,6 +3,7 @@ import checkPintosHealth from "./vscode/checkPintosHealth"
 import { Config } from "./vscode/config"
 import createPintosProject from "./vscode/createPintosProject"
 import PintosTestController from "./vscode/PintosTestController"
+import reflectTestsStatusFromResultFiles from "./vscode/reflectTestsStatusFromResultFiles"
 import resetTestController from "./vscode/resetTestController"
 import setupDevContainer from "./vscode/setupDevContainer"
 import { getCurrentWorkspaceUri, createScopedHandler } from "./vscode/utils"
@@ -28,6 +29,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("pintos.setupDevContainer", createScopedHandler(setupDevContainer, output)),
     vscode.commands.registerCommand("pintos.checkHealth", createScopedHandler(checkPintosHealth, output)),
     vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, context, output, currentTestControllerWrapper)),
+    vscode.commands.registerCommand("pintos.reflectTestsStatusFromResultFiles", createScopedHandler(reflectTestsStatusFromResultFiles, currentTestControllerWrapper)),
     currentTestControllerWrapper.controller
   )
 

@@ -39,6 +39,10 @@
       {
         "command": "pintos.resetTestController",
         "title": "Reset Test Controller (Destroy the previous one)"
+      },
+      {
+        "command": "pintos.reflectTestsStatusFromResultFiles",
+        "title": "Reflect tests status from the result files"
       }
     ],
     "menus": {
@@ -53,6 +57,10 @@
         },
         {
           "command": "pintos.resetTestController",
+          "when": "pintos.active"
+        },
+        {
+          "command": "pintos.reflectTestsStatusFromResultFiles",
           "when": "pintos.active"
         }
       ]

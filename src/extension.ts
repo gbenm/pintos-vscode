@@ -16,7 +16,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const workspaceDir = getCurrentWorkspaceUri().fsPath
   process.env.PATH = `${process.env.PATH}:${workspaceDir}/utils`
 
-  const currentTestControllerWrap = {
+  const currentTestControllerWrapper = {
     controller: await PintosTestController.create({
       phases: Config.pintosPhases,
       output
@@ -27,8 +27,8 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("pintos.createNewProject", createScopedHandler(createPintosProject, context, output)),
     vscode.commands.registerCommand("pintos.setupDevContainer", createScopedHandler(setupDevContainer, output)),
     vscode.commands.registerCommand("pintos.checkHealth", createScopedHandler(checkPintosHealth, output)),
-    vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, context, output, currentTestControllerWrap)),
-    currentTestControllerWrap.controller
+    vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, context, output, currentTestControllerWrapper)),
+    currentTestControllerWrapper.controller
   )
 
   vscode.commands.executeCommand("setContext", "pintos.active", true)

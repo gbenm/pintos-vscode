@@ -13,8 +13,10 @@ const output = createPintosOutputChannel()
 const platformsThatSupportFullCapabilities: NodeJS.Platform[] = ["linux", "darwin"]
 
 export async function activate(context: vscode.ExtensionContext) {
-  const workspaceDir = getCurrentWorkspaceUri().fsPath
-  process.env.PATH = `${process.env.PATH}:${workspaceDir}/utils`
+  if (Config.addPintosUtilsToPath) {
+    const workspaceDir = getCurrentWorkspaceUri().fsPath
+    process.env.PATH = `${process.env.PATH}:${workspaceDir}/utils`
+  }
 
   const currentTestControllerWrapper: { controller: PintosTestController | null, dispose: () => void } = {
     controller: null,

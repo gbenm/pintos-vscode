@@ -27,14 +27,20 @@ export class Config {
     })
   }
 
+  static get addPintosUtilsToPath (): boolean {
+    return this.required({
+      value: this.config.get<boolean>("addUtilsToPath"),
+    })
+  }
+
   private static get config () {
     return vscode.workspace.getConfiguration("pintos")
   }
 
   private static required<T>({
     value,
-    errorMessage
-  }: { value: T | undefined, errorMessage: string }): T {
+    errorMessage = "Required"
+  }: { value: T | undefined, errorMessage?: string }): T {
     if (!value) {
       throw new Error(errorMessage)
     }

@@ -94,6 +94,11 @@
           "type": "array",
           "default": ["threads", "userprog", "vm", "filesys"],
           "description": "A list of PintOS phases"
+        },
+        "pintos.addUtilsToPath": {
+          "type": "boolean",
+          "default": true,
+          "description": "The extension adds the utils path to the PATH in this process, without modify your configuration files"
         }
       }
     }

@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { ensureLookupTestsInPhase } from "../core/grade/lookup"
-import { TestItem, TestItemMapper, TestStatus } from "../core/grade/TestItem"
+import { TestItem, TestItemMapper, TestRunRequest, TestStatus } from "../core/grade/TestItem"
 import { childProcessToPromise, scopedCommand, ScopedCommandExecutor } from "../core/launch"
 import { getCurrentWorkspaceUri, pickOptions, showStopMessage, createScopedHandler, uriFromCurrentWorkspace } from "./utils"
 import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, onMissingTestDir, splitTestId } from "../core/grade/utils"
@@ -189,8 +189,12 @@ export default class PintosTestController extends TestController {
     return controller
   }
 
-  public async beforeRunTests(item: TestItem) {
+  public async beforeRunTests({ item, runningTestid }: TestRunRequest) {
     if (await item.existsResultFile()) {
+      if (runningTestid !== item.gid) {
+        return true
+      }
+
       try {
         const [cancel] = await pickOptions({
           title: `Do you want to re run ${item.name}`,
@@ -283,16 +287,34 @@ export default class PintosTestController extends TestController {
       uri => vscode.workspace.getWorkspaceFolder(uri)
     )
 
+    let currentRefreshTimeout: NodeJS.Timeout | undefined
+    let testToUpdate: TestItem[] = []
+
     const backlessHandler = (item: TestItem, backless: boolean) => {
       const vsctest = this.allvscTests.get(item.gid)!
       vsctest.description = Date.now().toString()
       vsctest.description = vsctestDescription(backless)
     }
 
+    const updateTests = () => {
+      const testRunner = this.createTestRunner({
+        include: testToUpdate.map(({ gid }) => this.allvscTests.get(gid)!)
+      })
+      testRunner.reflectCurrentTestsStatusInUI()
+      testRunner.dispose()
+      currentRefreshTimeout = undefined
+    }
+
     const statusHandler = (item: TestItem, status: TestStatus) => {
-      // const testRunner = this.createTestRunner()
-      // testRunner.reflectCurrentTestsStatusInUI()
-      // testRunner.dispose()
+      const testid = item.gid
+      const active = this.isWithinActiveTestRunners(testid)
+      if (!active && !item.isComposite) {
+        testToUpdate.push(item)
+
+        if (!currentRefreshTimeout) {
+          currentRefreshTimeout = setTimeout(updateTests, 1000)
+        }
+      }
     }
 
     this.rootTests.forEach(test => {
@@ -302,6 +324,7 @@ export default class PintosTestController extends TestController {
 
     const testWatcherDisposable = {
       dispose: () => {
+        clearTimeout(currentRefreshTimeout)
         this.rootTests.forEach(test => {
           test.off("backless", backlessHandler)
           test.off("status", statusHandler)
@@ -346,7 +369,7 @@ export default class PintosTestController extends TestController {
   }
 
   public isWithinActiveTestRunners(testid: string) {
-
+    return this.currentRunner && this.currentRunner.includes(testid)
   }
 
   public findTestByResultFile(file: string) {
@@ -380,6 +403,7 @@ export default class PintosTestController extends TestController {
 
 class TestRunner implements vscode.Disposable {
   public readonly tests: readonly TestItem[]
+  private enqueued = false
   private readonly allvscTests: ReadonlyMap<string, vscode.TestItem>
   private readonly testRun: vscode.TestRun
   private readonly output?: OutputChannel
@@ -405,7 +429,9 @@ class TestRunner implements vscode.Disposable {
     }, "runner@".concat(new Date().toISOString()))
 
     this.testRun.token.onCancellationRequested(() => {
-      console.log(`Canceled Test Run ${this.testRun.name}`)
+      if (this.enqueued) {
+        console.log(`Canceled Test Run ${this.testRun.name}`)
+      }
       this.cancel()
     }, this.testRun)
 
@@ -420,6 +446,7 @@ class TestRunner implements vscode.Disposable {
   }
 
   public markAsEnqueued () {
+    this.enqueued = true
     this.tests.forEach((item) => iterableForEach(test => test.status = "enqueued", item.testLeafs))
   }
 
@@ -427,11 +454,14 @@ class TestRunner implements vscode.Disposable {
     this.queue = []
     this.currentProcess?.stop()
     this.dispose()
+    this.enqueued = false
   }
 
   public async start() {
+    this.enqueued = true
     this.tests.forEach((item) => iterableForEach(test => test.status = "started", item.testLeafs))
     await this.dequeueAndRunUntilEmpty()
+    this.enqueued = false
     this.dispose()
   }
 
@@ -443,7 +473,10 @@ class TestRunner implements vscode.Disposable {
     if (this.queue.length > 0) {
       const test = this.queue.shift()!
       this.currentProcess = test
-      await test.run(this.output)
+      await test.run({
+        output: this.output,
+        runningTestid: test.gid
+      })
       this.currentProcess = null
       await this.dequeueAndRunUntilEmpty()
     }

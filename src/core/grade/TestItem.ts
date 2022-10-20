@@ -2,8 +2,8 @@ import { ChildProcessWithoutNullStreams } from "node:child_process"
 import { EventEmitter } from "node:events"
 import { dirname, join as joinPath, resolve as resolvePath } from "node:path"
 import { Fn, OptionalPromiseLike, OutputChannel } from "../types"
-import { iterableForEach, prop } from "../utils/fp/common"
-import { or } from "../utils/fp/math"
+import { iterableForEach, prop, waitMap } from "../utils/fp/common"
+import { and, or } from "../utils/fp/math"
 import { existsfile, rmfile } from "./utils"
 
 export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skipped", "unknown"]
@@ -168,14 +168,23 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     return super.emit(event, item, change)
   }
 
-  public async removeFiles () {
+  public async removeFiles (): Promise<boolean> {
+    let results: boolean[]
     if (this.isComposite) {
-      await Promise.all(Array.from(this.testLeafs, test => test.removeFiles()))
+      results = await Promise.all(Array.from(this.testLeafs, test => test.removeFiles()))
     } else {
-      await rmfile(this.resultFile)
-      await rmfile(this.errorsFile)
-      await rmfile(this.outputFile)
+      const toRemove = [this.resultFile, this.errorsFile, this.outputFile]
+      results = await waitMap(async (file) => {
+        try {
+          await rmfile(file)
+          return true
+        } catch {
+          return false
+        }
+      }, toRemove)
     }
+
+    return results.reduce(and, true)
   }
 
   public async existsResultFile (): Promise<boolean> {
@@ -186,13 +195,20 @@ export class TestItem extends EventEmitter implements Iterable<TestItem> {
     return await existsfile(this.resultFile)
   }
 
-  public async run(output?: OutputChannel): Promise<TestStatus> {
+  public async run(context: {
+    output?: OutputChannel
+    [metadata: string]: unknown
+  } = {}): Promise<TestStatus> {
     if (!this.runBlocked) {
-      const omit = !await this.beforeRun?.(this, output)
+      const request = {
+        item: this,
+        ...context
+      }
+      const omit = !await this.beforeRun?.(request)
       if (omit && this.beforeRun) {
         return "unknown"
       }
-      return await this._run(this, output)
+      return await this._run(request)
     } else {
       this.runBlocked = false
       return "unknown"
@@ -292,9 +308,15 @@ export type TestItemEvent = "status" | "backless" | "any"
 
 export type TestItemMapper<T, C = any> = (item: TestItem, map: TestItemMapper<T, C>, context: C) => T
 
-export type TestRunner = (item: TestItem, output?: OutputChannel) => OptionalPromiseLike<TestStatus>
+export type TestRunner = (request: TestRunRequest) => OptionalPromiseLike<TestStatus>
 
-export type BeforeRunEvent = (item: TestItem, output?: OutputChannel) => OptionalPromiseLike<boolean>
+export type BeforeRunEvent = (request: TestRunRequest) => OptionalPromiseLike<boolean>
+
+export interface TestRunRequest {
+  item: TestItem,
+  output?: OutputChannel
+  [metadata: string]: unknown
+}
 
 export type TestStatus = "passed"
   | "failed"

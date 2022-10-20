@@ -1,15 +1,14 @@
 import { existsSync, readFileSync } from "fs"
 import { childProcessToPromise, spawnCommand } from "../launch"
-import { OutputChannel } from "../types"
 import { curry, iterableForEach, waitMap } from "../utils/fp/common"
-import { finalStates, TestItem, TestStatus } from "./TestItem"
+import { finalStates, TestItem, TestRunRequest, TestStatus } from "./TestItem"
 
-export async function runSpecificTest(item: TestItem, output?: OutputChannel): Promise<TestStatus> {
+export async function runSpecificTest({ item, output }: TestRunRequest): Promise<TestStatus> {
   if (item.isComposite) {
-    throw new Error("must be a file test")
+    throw new Error(`${item.name} must be a file test`)
   }
 
-  output?.appendLine(`test ${item.id}`)
+  output?.appendLine(`start ${item.id}`)
 
   const testProcess = spawnCommand({
     cwd: item.phase,
@@ -41,17 +40,17 @@ export async function runSpecificTest(item: TestItem, output?: OutputChannel): P
   }
 }
 
-export async function runInnerTests(item: TestItem, output?: OutputChannel): Promise<TestStatus> {
-  output?.appendLine(`test ${item.id}`)
+export async function runInnerTests({ item, ...context }: TestRunRequest): Promise<TestStatus> {
+  context.output?.appendLine(`start ${item.id}`)
 
-  await waitMap(test => test.run(output), Array.from(item.testLeafs))
+  await waitMap(test => test.run(context), Array.from(item.testLeafs))
 
   return item.status
 }
 
 
-export async function runPintosPhase(item: TestItem, output?: OutputChannel): Promise<TestStatus> {
-  output?.appendLine(`test ${item.gid}`)
+export async function runPintosPhase({ item, output }: TestRunRequest): Promise<TestStatus> {
+  output?.appendLine(`start ${item.gid}`)
 
   let status: TestStatus = "errored"
   try {

@@ -1,15 +1,14 @@
 import * as vscode from "vscode"
 import { ensureLookupTestsInPhase } from "../core/grade/lookup"
-import { TestItem, TestItemMapper, TestRunRequest, TestStatus } from "../core/grade/TestItem"
+import { TestItem, TestRunRequest, TestStatus } from "../core/grade/TestItem"
 import { childProcessToPromise, scopedCommand, ScopedCommandExecutor } from "../core/launch"
 import { getCurrentWorkspaceUri, pickOptions, showStopMessage, createScopedHandler, uriFromCurrentWorkspace } from "./utils"
 import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, onMissingTestDir, splitTestId } from "../core/grade/utils"
 import { bind, iterableForEach, iterLikeTolist, prop, waitForEach, waitMap } from "../core/utils/fp/common"
-import { OutputChannel } from "../core/types"
+import { FunctionsOf, OutputChannel } from "../core/types"
 import { cleanAndCompilePhase } from "../core/grade/compile"
 import { setStatusFromResultFile } from "../core/grade/run"
 import { executeOrStopOnError } from "./errors"
-import { existsSync } from "node:fs"
 import { ChildProcessWithoutNullStreams } from "node:child_process"
 
 export class TestController implements vscode.TestController, vscode.Disposable {
@@ -59,6 +58,7 @@ export default class PintosTestController extends TestController {
   private readonly disposables: vscode.Disposable[] = []
 
   private constructor (
+    private storage: Storage,
     public readonly phases: string[]
   ) {
     super()
@@ -185,9 +185,11 @@ export default class PintosTestController extends TestController {
 
   public static async create(descriptor: {
     phases: string[]
+    context: vscode.ExtensionContext
     output?: vscode.OutputChannel
   }): Promise<PintosTestController> {
-    const controller = new PintosTestController(descriptor.phases)
+    const storage = new Storage(descriptor.context.workspaceState, "testController")
+    const controller = new PintosTestController(storage, descriptor.phases)
     controller.output = descriptor.output
     const fns = bind(controller)
 
@@ -310,7 +312,13 @@ export default class PintosTestController extends TestController {
         splitId: splitTestId
       }, { path: "build", phase })
 
-      return waitMap(getTestFrom, phases)
+      return waitMap(async (phase) => {
+        const test = await getTestFrom(phase)
+        iterableForEach(item => {
+          item.lastExecutionTime = this.storage.of(item.gid).get("lastExecutionTime")
+        }, test.testLeafs)
+        return test
+      }, phases)
     })
   }
 
@@ -349,6 +357,12 @@ export default class PintosTestController extends TestController {
     return null
   }
 
+  public saveLastExecutionTimeOf (testid: string, milliseconds: number | undefined) {
+    if (typeof milliseconds === "number") {
+      this.storage.of(testid).update("lastExecutionTime", milliseconds)
+    }
+  }
+
   private cmdFromRootProject<R>(execute: ScopedCommandExecutor<R>) {
     return scopedCommand({
       cwd: this.rootPath,
@@ -368,6 +382,7 @@ class TestRunner implements vscode.Disposable {
   private enqueued = false
   private readonly testRun: vscode.TestRun
   private readonly output?: OutputChannel
+  private readonly controller: PintosTestController
 
   private queue: TestItem<vscode.TestItem>[]
   private currentProcess: TestItem<vscode.TestItem> | null = null
@@ -378,10 +393,11 @@ class TestRunner implements vscode.Disposable {
     output, controller, allTests, request
   }: {
     request: Partial<vscode.TestRunRequest>
-    controller: vscode.TestController
+    controller: PintosTestController
     allTests: ReadonlyMap<string, TestItem<vscode.TestItem>>
     output?: OutputChannel
   }) {
+    this.controller = controller
     this.testRun = controller.createTestRun({
       exclude: request.exclude,
       include: request.include,
@@ -458,6 +474,10 @@ class TestRunner implements vscode.Disposable {
       }
     }
 
+    const saveExecutionTime = () => {
+      this.controller.saveLastExecutionTimeOf(vscTest.id, test.lastExecutionTime)
+    }
+
     switch (status) {
       case "enqueued":
       case "skipped":
@@ -467,10 +487,12 @@ class TestRunner implements vscode.Disposable {
       case "errored":
       case "failed":
         appendStatus()
+        saveExecutionTime()
         this.testRun[status](vscTest, new vscode.TestMessage("unknown error"), test.lastExecutionTime)
         break
       case "passed":
         appendStatus()
+        saveExecutionTime()
         this.testRun[status](vscTest, test.lastExecutionTime)
         break
       case "unknown":
@@ -573,7 +595,8 @@ class PintosTestsFsWatcher implements vscode.Disposable {
   }
 
   public addToUpdateTests (item: TestItem<vscode.TestItem>) {
-    if (!item.isComposite) {
+    const active = this.controller.isWithinActiveTestRunners(item.gid)
+    if (!item.isComposite && !active) {
       this.testsToUpdate.push(item)
 
       if (!this.currentRefreshTimeout) {
@@ -600,5 +623,49 @@ class PintosTestsFsWatcher implements vscode.Disposable {
     this.disposables.forEach(d => d.dispose())
   }
 }
+
+
+class Storage implements vscode.Memento {
+  private readonly prefix: string
+
+  constructor (
+    private readonly memento: vscode.Memento,
+    public readonly name: string
+  ) {
+    this.prefix = `@${name}:`
+  }
+
+  keys(): readonly string[] {
+    return this.memento.keys().filter(
+      name => name.startsWith(this.prefix)
+    )
+  }
+
+  get<T>(key: string): T | undefined
+  get<T>(key: string, defaultValue: T): T
+  get<T>(key: string, defaultValue?: T | undefined): T | undefined {
+    const fullKey = this.prefix.concat(key)
+    if (typeof defaultValue === "undefined") {
+      return this.memento.get<T>(fullKey)
+    }
+
+    return this.memento.get<T>(fullKey, defaultValue)
+  }
+
+  update(key: string, value: any): Thenable<void> {
+    const fullKey = this.prefix.concat(key)
+    return this.memento.update(fullKey, value)
+  }
+
+  of (baseKey: string): SubStorage {
+    return new Proxy(this, {
+      get (target: SubStorage, method: keyof SubStorage) {
+        return (key: string, ...args: [any]) => target[method](`${baseKey}.${key}`, ...args)
+      }
+    })
+  }
+}
+
+export type SubStorage = Pick<FunctionsOf<Storage>, "get" | "update" | "of">
 
 const vsctestDescription = (backless: boolean) => backless ? "(backless)" : ""

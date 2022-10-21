@@ -35,6 +35,7 @@ export async function activate(context: vscode.ExtensionContext) {
   if (pintosSupported) {
     currentTestControllerWrapper.controller = await PintosTestController.create({
       phases: Config.pintosPhases,
+      context,
       output
     })
   }
@@ -47,7 +48,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   if (hasActiveTestController(currentTestControllerWrapper)) {
     context.subscriptions.push(
-      vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, output, currentTestControllerWrapper)),
+      vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, context, output, currentTestControllerWrapper)),
       vscode.commands.registerCommand("pintos.reflectTestsStatusFromResultFiles", createScopedHandler(reflectTestsStatusFromResultFiles, currentTestControllerWrapper)),
       currentTestControllerWrapper
     )

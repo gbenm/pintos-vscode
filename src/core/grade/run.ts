@@ -58,6 +58,7 @@ export async function runPintosPhase({ item, output }: TestRunRequest): Promise<
   output?.appendLine(`start ${item.gid}`)
 
   let status: TestStatus = "errored"
+
   try {
     const testProcess = spawnCommand({
       cmd: "make",
@@ -69,18 +70,22 @@ export async function runPintosPhase({ item, output }: TestRunRequest): Promise<
 
     iterableForEach(setStatusFromResultFile, item.testLeafs)
 
+    let start = Date.now()
     await childProcessToPromise({
       process: testProcess,
       onData(buffer: Buffer) {
         const partialResult = buffer.toString()
         output?.append(partialResult)
+        const end = Date.now()
 
         const passedTests = partialResult.match(/^pass.*/mig)?.map(extractTestName) || []
         const failedTests = partialResult.match(/^fail.*/mig)?.map(extractTestName) || []
 
+        let anyResultFromThisBuffer = false
+        const estimatedExecutionTime = (end - start) / (passedTests.length + failedTests.length)
         const setStatus = curry((status: TestStatus, testId: string | null): void => {
           if (!testId) {
-            return
+            throw new Error(`${testId} not found in TestItems`)
           }
 
           const test = item.lookup({
@@ -90,13 +95,17 @@ export async function runPintosPhase({ item, output }: TestRunRequest): Promise<
 
           if (test && !test.isComposite) {
             test.status = status
+            test.lastExecutionTime = estimatedExecutionTime
+            anyResultFromThisBuffer = true
           }
-
-          throw new Error(`${testId} not found in TestItems`)
         })
 
         passedTests.forEach(setStatus("passed"))
         failedTests.forEach(setStatus("failed"))
+
+        if (anyResultFromThisBuffer) {
+          start = end
+        }
       }
     })
 

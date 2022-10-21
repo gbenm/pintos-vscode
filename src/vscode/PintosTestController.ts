@@ -537,8 +537,12 @@ class PintosTestsFsWatcher implements vscode.Disposable {
         const pattern = new vscode.RelativePattern(folder, "**/*.result")
         const watcher = vscode.workspace.createFileSystemWatcher(pattern)
 
-        const changeStatusOfTest = ({ fsPath }: vscode.Uri) => {
+        const changeStatusOfTest = (createEvent: boolean, { fsPath }: vscode.Uri) => {
           const test = this.controller.findTestByResultFile(fsPath)
+          if (createEvent && test) {
+            test.backless = false
+          }
+
           if (test && !this.controller.isWithinActiveTestRunners(test.id)) {
             setStatusFromResultFile(test)
           }
@@ -552,8 +556,8 @@ class PintosTestsFsWatcher implements vscode.Disposable {
           }
         }
 
-        watcher.onDidCreate(changeStatusOfTest)
-        watcher.onDidChange(changeStatusOfTest)
+        watcher.onDidCreate((uri) => changeStatusOfTest(true, uri))
+        watcher.onDidChange((uri) => changeStatusOfTest(false, uri))
         watcher.onDidDelete(notifyResultFileDeletion)
 
         return watcher

@@ -75,10 +75,7 @@
           "minLength": 5
         },
         "pintos.baseRepositoryCodeFolder": {
-          "type": [
-            "null",
-            "string"
-          ],
+          "type": "string",
           "default": "src",
           "description": "The folder containing the source code of PintOS"
         },

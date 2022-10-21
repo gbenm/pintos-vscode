@@ -13,10 +13,11 @@ export function showStopMessage(output?: vscode.OutputChannel) {
   return () => output?.appendLine("Stopped")
 }
 
-export function getUserInput({ title, placeholder, initialValue = "" }: {
+export function getUserInput({ title, placeholder, initialValue = "", required = true }: {
   title: string
   placeholder: string
   initialValue?: string
+  required?: boolean
 }): Promise<string> {
   const input = vscode.window.createInputBox()
   input.title = title
@@ -27,11 +28,12 @@ export function getUserInput({ title, placeholder, initialValue = "" }: {
 
   return freeResource(promise((resolve, reject) => {
     input.onDidAccept(() => {
-      if (!input.value.trim()) {
+      const value = input.value.trim()
+      if (required && !value) {
         return
       }
 
-      resolve(input.value.trim())
+      resolve(value)
       input.hide()
     })
 

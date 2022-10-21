@@ -41,11 +41,9 @@ export default async function (context: vscode.ExtensionContext, output: vscode.
     }
   }
 
-  if (clone) {
-    await cloneSnapshot({ output, tempPath })
-  }
+  const tempSourceCode = await cloneSnapshot({ output, tempPath, clone })
 
-  const pintosPjUri = await mvPintosCodeToUserInputFolder({ output, tempPath })
+  const pintosPjUri = await mvPintosCodeToUserInputFolder({ output, codeFolder: tempSourceCode })
   removeSync(tempPath)
 
   await vscInitPintosProject(pintosPjUri.fsPath, output)
@@ -56,32 +54,60 @@ export default async function (context: vscode.ExtensionContext, output: vscode.
   }
 }
 
-async function cloneSnapshot({ output, tempPath }: {
+async function cloneSnapshot({ output, tempPath, clone }: {
   output: vscode.OutputChannel,
   tempPath: string
+  clone: boolean
 }) {
-  const repoUrl = Config.baseRepository
-  const codeFolder = Config.baseRepositoryCodeFolder
-
-  output.appendLine("PintOS start cloning...")
-  await vscode.window.withProgress({
-      location: vscode.ProgressLocation.Notification,
-      title: "Cloning PintOS repository",
-      cancellable: false
-    },
-    () => clonePintosSnapshot({
-      localPath: tempPath,
-      repoUrl,
-      outputChannel: output,
-      codeFolder
+  let repoUrl: string
+  if (clone) {
+    repoUrl = await executeOrStopOnError({
+      execute: () => getUserInput({
+        initialValue: Config.baseRepository,
+        title: "Repository to get a code snapshot of PintOS",
+        placeholder: "e.g. https://github.com/gbenm/pintos-tuto"
+      })
     })
-  )
-  output.appendLine("clone done!")
+  }
+
+  let codeFolder: string | null = await executeOrStopOnError({
+    execute: () => getUserInput({
+      initialValue: Config.baseRepositoryCodeFolder,
+      title: "The source code folder of pintos in the repository (contains utils/, threads/, etc.). Leave empty if the repository has only the source code of the project",
+      placeholder: "e.g. src/",
+      required: false
+    })
+  })
+
+  codeFolder = codeFolder || null
+
+  if (codeFolder === "/") {
+    codeFolder = null
+  }
+
+  if (clone) {
+    output.appendLine("PintOS start cloning...")
+    await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: "Cloning PintOS repository",
+        cancellable: false
+      },
+      () => clonePintosSnapshot({
+        localPath: tempPath,
+        repoUrl,
+        outputChannel: output,
+        codeFolder
+      })
+    )
+    output.appendLine("clone done!")
+  }
+
+  return joinPath(tempPath, codeFolder || "")
 }
 
-async function mvPintosCodeToUserInputFolder({ output, tempPath }: {
+async function mvPintosCodeToUserInputFolder({ output, codeFolder }: {
   output: vscode.OutputChannel,
-  tempPath: string
+  codeFolder: string
 }): Promise<vscode.Uri> {
   const currentWorkspaceUri = getCurrentWorkspaceUri()
 
@@ -97,7 +123,7 @@ async function mvPintosCodeToUserInputFolder({ output, tempPath }: {
   output.appendLine("Start moving the source code")
   const dstUri = vscode.Uri.joinPath(currentWorkspaceUri, pintosTargetFolder)
   await vscode.workspace.fs.rename(
-    vscode.Uri.parse(joinPath(tempPath, "src")),
+    vscode.Uri.parse(codeFolder),
     dstUri,
     { overwrite: true }
   )

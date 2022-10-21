@@ -10,9 +10,12 @@ export class Config {
     })
   }
 
-  static get baseRepositoryCodeFolder (): string | null {
+  static get baseRepositoryCodeFolder (): string {
     const codeFolder = this.config.get<string>("baseRepositoryCodeFolder")
-    return codeFolder ?? null
+    return this.required({
+      value: codeFolder,
+      errorMessage: "You need to specify source code folder of the pintos"
+    })
   }
 
   static get personalRepoUrl (): string | null {

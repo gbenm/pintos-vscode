@@ -38,9 +38,6 @@ export async function runSpecificTest({ item, output }: TestRunRequest): Promise
     }
   } finally {
     item.lastExecutionTime = Date.now() - startTime
-    if (!finalStates.includes(item.status)) {
-      item.status = status
-    }
     return status
   }
 }

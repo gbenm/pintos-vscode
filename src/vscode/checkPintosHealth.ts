@@ -24,14 +24,14 @@ export default function (output: vscode.OutputChannel) {
     terminal.sendText("cd threads", true)
 
     const workspaceDir = getCurrentWorkspaceUri().fsPath
-    const autoCloseCmd = `function waitForEnter () {
+    const autoCloseCmd = `function exitAfterEnter () {
       eval $1;
       echo;
       echo 'Press enter to exit' && read && exit;
     }`
     terminal.sendText(autoCloseCmd, true)
     terminal.sendText(`export PATH=\$PATH:${workspaceDir}/utils`, true)
-    terminal.sendText("waitForEnter 'pintos --qemu -- -q run alarm-multiple'", true)
+    terminal.sendText("exitAfterEnter 'pintos --qemu -- -q run alarm-multiple'", true)
   } catch (e) {
     output.appendLine("fail :c")
     throw e

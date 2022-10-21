@@ -298,7 +298,12 @@ export default class PintosTestController extends TestController {
           }, () => onMissingTestDir({ phase, output: this.output }))
         }),
         generateId: generateTestId,
-        getDirOf: getDirOfTest,
+        getDirOf: (testid) => {
+          if (testid === "tests" || testid === `pintos.error/${phase}`) {
+            return uriFromCurrentWorkspace(phase).fsPath
+          }
+          return getDirOfTest(testid)
+        },
         getNameOf: getNameOfTest,
         onMissingDiscoverMakefile,
         testDataBuilder: (test: Readonly<TestItem<vscode.TestItem>>) => {
@@ -340,7 +345,7 @@ export default class PintosTestController extends TestController {
   }
 
   public isWithinActiveTestRunners(testid: string) {
-    return this.currentRunner && this.currentRunner.includes(testid)
+    return !!this.currentRunner && this.currentRunner.includes(testid)
   }
 
   public findTestByResultFile(file: string) {
@@ -551,8 +556,13 @@ class PintosTestsFsWatcher implements vscode.Disposable {
       test.on("status", this.statusHandler)
     })
 
+    this.watchResultFiles()
+    this.watchBuildDirs()
+  }
+
+  private watchResultFiles () {
     this.folders
-      .map(folder => {
+      .forEach(folder => {
         if (!folder) {
           return null
         }
@@ -583,10 +593,21 @@ class PintosTestsFsWatcher implements vscode.Disposable {
         watcher.onDidChange((uri) => changeStatusOfTest(false, uri))
         watcher.onDidDelete(notifyResultFileDeletion)
 
-        return watcher
+        this.disposables.push(watcher)
       })
-      .filter(item => item !== null)
-      .forEach(diposable => this.disposables.push(diposable!))
+  }
+
+  private watchBuildDirs() {
+    this.rootTests.forEach((test) => {
+      const pattern = new vscode.RelativePattern(test.basePath, "build")
+      const watcher = vscode.workspace.createFileSystemWatcher(pattern, true, true)
+
+      watcher.onDidDelete(() => {
+        iterableForEach(child => child.backless = true, test.testLeafs)
+      })
+
+      this.disposables.push(watcher)
+    })
   }
 
   public changeDescriptionOf (item: TestItem<vscode.TestItem>, backless: boolean) {
@@ -601,7 +622,7 @@ class PintosTestsFsWatcher implements vscode.Disposable {
       this.testsToUpdate.push(item)
 
       if (!this.currentRefreshTimeout) {
-        this.currentRefreshTimeout = setTimeout(this.updateStatusTestsInUI, 1000)
+        this.currentRefreshTimeout = setTimeout(() => this.updateStatusTestsInUI(), 1000)
       }
     }
   }

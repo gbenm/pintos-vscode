@@ -10,6 +10,7 @@ import { cleanAndCompilePhase } from "../core/grade/compile"
 import { setStatusFromResultFile } from "../core/grade/run"
 import { executeOrStopOnError } from "./errors"
 import { ChildProcessWithoutNullStreams } from "node:child_process"
+import colors from "../core/utils/colors"
 
 export class TestController implements vscode.TestController, vscode.Disposable {
   protected vscTestController: vscode.TestController
@@ -470,7 +471,7 @@ class TestRunner implements vscode.Disposable {
 
     const appendStatus = () => {
       if (!test.isComposite) {
-        this.testRun.appendOutput(`${status} ${test.phase} ${test.id}\r\n`, undefined, vscTest)
+        this.testRun.appendOutput(`${colors[status](status)} ${colors.gray(test.phase)} ${test.id}\r\n`, undefined, vscTest)
       }
     }
 

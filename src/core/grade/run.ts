@@ -8,7 +8,7 @@ export async function runSpecificTest({ item, output }: TestRunRequest): Promise
     throw new Error(`${item.name} must be a file test`)
   }
 
-  output?.appendLine(`start ${item.id}`)
+  output?.appendLine(startMessageOf(item))
 
   const testProcess = spawnCommand({
     cwd: item.phase,
@@ -19,6 +19,7 @@ export async function runSpecificTest({ item, output }: TestRunRequest): Promise
   item.process = testProcess
 
   let status: TestStatus = "errored"
+  let changeLastExecutionTime = true
   const startTime = Date.now()
   try {
     const result = (await childProcessToPromise({ process: testProcess })).toString()
@@ -32,18 +33,24 @@ export async function runSpecificTest({ item, output }: TestRunRequest): Promise
       status = "failed"
     } else {
       const state = getTestStateFromResultFile(item.resultFile)
-      if (state.status === "unknown") {
+      status = state.status
+
+      if (status === "unknown") {
         status = "errored"
+      } else {
+        changeLastExecutionTime = false // the result comes from filesystem
       }
     }
   } finally {
-    item.lastExecutionTime = Date.now() - startTime
+    if (changeLastExecutionTime) {
+      item.lastExecutionTime = Date.now() - startTime
+    }
     return status
   }
 }
 
 export async function runInnerTests({ item, ...context }: TestRunRequest): Promise<TestStatus> {
-  context.output?.appendLine(`start ${item.id}`)
+  context.output?.appendLine(startMessageOf(item))
 
   await waitMap(test => test.run(context), Array.from(item.testLeafs))
 
@@ -52,7 +59,7 @@ export async function runInnerTests({ item, ...context }: TestRunRequest): Promi
 
 
 export async function runPintosPhase({ item, output }: TestRunRequest): Promise<TestStatus> {
-  output?.appendLine(`start ${item.gid}`)
+  output?.appendLine(startMessageOf(item))
 
   let status: TestStatus = "errored"
 
@@ -124,6 +131,8 @@ export async function runPintosPhase({ item, output }: TestRunRequest): Promise<
     return status
   }
 }
+
+const startMessageOf = ({ id, phase }: TestItem) => `[start] <${phase}> ${id}\n`
 
 export function setStatusFromResultFile(test: TestItem<any>) {
   const { backless, status } = getTestStateFromResultFile(test.resultFile)

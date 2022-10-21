@@ -36,6 +36,12 @@ export class Config {
     })
   }
 
+  static get buildPintosUtils (): boolean {
+    return this.required({
+      value: this.config.get<boolean>("buildUtils"),
+    })
+  }
+
   private static get config () {
     return vscode.workspace.getConfiguration("pintos")
   }
@@ -44,7 +50,7 @@ export class Config {
     value,
     errorMessage = "Required"
   }: { value: T | undefined, errorMessage?: string }): T {
-    if (!value) {
+    if (typeof value === "undefined") {
       throw new Error(errorMessage)
     }
 

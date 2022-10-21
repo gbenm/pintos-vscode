@@ -101,6 +101,11 @@
           "type": "boolean",
           "default": true,
           "description": "The extension adds the utils path to the PATH in this process, without modify your configuration files"
+        },
+        "pintos.buildUtils": {
+          "type": "boolean",
+          "default": true,
+          "description": "When launch \"pintos health\" command, execute \"cd utils && make\" before"
         }
       }
     }

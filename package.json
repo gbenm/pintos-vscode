@@ -2,7 +2,7 @@
   "name": "pintos",
   "displayName": "pintos",
   "description": "pintos runtime",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "gbenm",
   "repository": {
     "type": "git",
@@ -89,7 +89,12 @@
         },
         "pintos.phases": {
           "type": "array",
-          "default": ["threads", "userprog", "vm", "filesys"],
+          "default": [
+            "threads",
+            "userprog",
+            "vm",
+            "filesys"
+          ],
           "description": "A list of PintOS phases"
         },
         "pintos.addUtilsToPath": {

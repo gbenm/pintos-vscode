@@ -91,8 +91,8 @@ export async function runPintosPhase({ item, output }: TestRunRequest): Promise<
           })
 
           if (test && !test.isComposite) {
-            test.status = status
             test.lastExecutionTime = estimatedExecutionTime
+            test.status = status
             anyResultFromThisBuffer = true
           }
         })
@@ -120,10 +120,6 @@ export async function runPintosPhase({ item, output }: TestRunRequest): Promise<
   } finally {
     output?.appendLine("")
     output?.appendLine(`exit with code ${item.process?.exitCode}`)
-
-    if (!item.isComposite) {
-      item.status = status
-    }
 
     return status
   }

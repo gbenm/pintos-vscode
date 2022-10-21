@@ -2,7 +2,7 @@
   "name": "pintos",
   "displayName": "pintos",
   "description": "pintos runtime",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "gbenm",
   "repository": {
     "type": "git",

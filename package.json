@@ -20,7 +20,8 @@
   ],
   "main": "./dist/extension.js",
   "extensionDependencies": [
-    "EditorConfig.EditorConfig"
+    "EditorConfig.EditorConfig",
+    "ms-vscode.cpptools"
   ],
   "contributes": {
     "commands": [

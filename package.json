@@ -2,7 +2,7 @@
   "name": "pintos",
   "displayName": "PintOS",
   "description": "Pintos tools, testing and debugging",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "gbenm",
   "repository": {
     "type": "git",
@@ -12,7 +12,9 @@
     "vscode": "^1.68.0"
   },
   "categories": [
-    "Testing", "Debuggers", "Education"
+    "Testing",
+    "Debuggers",
+    "Education"
   ],
   "activationEvents": [
     "onCommand:pintos.createNewProject",

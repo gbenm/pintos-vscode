@@ -1,6 +1,9 @@
-# PintOS vscode README
+# PintOS vscode
 
-Pintos extension
+> **Important:** this is a testing version. the stable version is coming soon
+
+Pintos extension, go to [pintos vscode docs](https://gbenm.github.io/pintos-utils/pintos-vscode)
+for full documenation (only in spanish)
 
 ## Features
 

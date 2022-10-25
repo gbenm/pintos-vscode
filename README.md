@@ -1,6 +1,6 @@
 # PintOS vscode
 
-> **Important:** this is a testing version. the stable version is coming soon
+> **Important:** this is a testing version, the stable version is coming soon
 
 Pintos extension, go to [pintos vscode docs](https://gbenm.github.io/pintos-utils/pintos-vscode)
 for full documenation (only in spanish)

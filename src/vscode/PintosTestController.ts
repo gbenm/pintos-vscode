@@ -12,6 +12,7 @@ import { ChildProcessWithoutNullStreams } from "node:child_process"
 import colors from "../core/utils/colors"
 import PintosTestsFsWatcher from "./PintosTestsFsWatcher"
 import Storage from "./Storage"
+import TestRunner from "./run/TestRunner"
 
 export interface TestController extends vscode.TestController {
   readonly rootTests: readonly TestItem<vscode.TestItem>[]
@@ -508,7 +509,7 @@ class TestLotUiManager implements vscode.Disposable {
 }
 
 
-abstract class TestLotProcess extends TestLotUiManager {
+export abstract class TestLotProcess extends TestLotUiManager {
   protected queue: TestItem<vscode.TestItem>[]
   protected currentProcess: TestItem<vscode.TestItem> | null = null
 
@@ -552,21 +553,5 @@ abstract class TestLotProcess extends TestLotUiManager {
   protected abstract execute(test: TestItem<vscode.TestItem>): Promise<void>
 }
 
-
-class TestRunner extends TestLotProcess {
-  constructor (args: {
-    request: Partial<vscode.TestRunRequest>
-    controller: TestController
-  }) {
-    super({ ...args, label: "runner" })
-  }
-
-  protected async execute(test: TestItem<vscode.TestItem>): Promise<void> {
-    await test.run({
-      output: this.controller.output,
-      runningTestid: test.gid
-    })
-  }
-}
 
 export const vsctestDescription = (backless: boolean) => backless ? "(backless)" : ""

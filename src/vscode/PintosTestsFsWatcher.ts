@@ -110,11 +110,11 @@ export default class PintosTestsFsWatcher implements vscode.Disposable {
   }
 
   updateStatusTestsInUI () {
-    const testRunner = this.controller.createTestRunner({
+    const uiManager = this.controller.createTestLotUiManager({
       include: this.testsToUpdate.map(({ data }) => data)
     })
-    testRunner.reflectCurrentTestsStatusInUI()
-    testRunner.dispose()
+    uiManager.reflectCurrentTestsStatusInUI()
+    uiManager.dispose()
     this.currentRefreshTimeout = undefined
   }
 

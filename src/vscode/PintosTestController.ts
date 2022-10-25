@@ -12,7 +12,6 @@ import { ChildProcessWithoutNullStreams } from "node:child_process"
 import colors from "../core/utils/colors"
 import PintosTestsFsWatcher from "./PintosTestsFsWatcher"
 import Storage from "./Storage"
-import TestRunner from "./run/TestRunner"
 
 export interface TestController extends vscode.TestController {
   readonly rootTests: readonly TestItem<vscode.TestItem>[]
@@ -22,7 +21,7 @@ export interface TestController extends vscode.TestController {
   saveLastExecutionTimeOf (testid: string, milliseconds: number | undefined): void
   findTestByResultFile(file: string): TestItem<vscode.TestItem> | null
   isWithinActiveTestRunners(testid: string): boolean
-  createTestRunner (request?: Partial<vscode.TestRunRequest>): TestRunner
+  createTestLotUiManager (request?: Partial<vscode.TestRunRequest>): TestLotUiManager
   cancel(request: vscode.TestRunRequest): void
   enqueue(runner: TestLotProcess): void
 }
@@ -69,7 +68,7 @@ export abstract class VSCTestController implements TestController, vscode.Dispos
   abstract saveLastExecutionTimeOf(testid: string, milliseconds: number | undefined): void
   abstract findTestByResultFile(file: string): TestItem<vscode.TestItem> | null
   abstract isWithinActiveTestRunners(testid: string): boolean
-  abstract createTestRunner(request?: Partial<vscode.TestRunRequest>): TestRunner
+  abstract createTestLotUiManager(request?: Partial<vscode.TestRunRequest>): TestLotUiManager
   abstract cancel(request: vscode.TestRunRequest): void
   abstract enqueue(runner: TestLotProcess): void
 }
@@ -259,18 +258,18 @@ export default class PintosTestController extends VSCTestController {
   }
 
   public reflectCurrentTestsStatusInUI () {
-    const runner = this.createTestRunner()
-    runner.reflectCurrentTestsStatusInUI()
-    runner.dispose()
+    const uiManager = this.createTestLotUiManager()
+    uiManager.reflectCurrentTestsStatusInUI()
+    uiManager.dispose()
   }
 
-  public createTestRunner (request: Partial<vscode.TestRunRequest> = {}): TestRunner {
-    const runner = new TestRunner({
+  public createTestLotUiManager (request: Partial<vscode.TestRunRequest> = {}): TestLotUiManager {
+    const manager = new TestLotUiManager({
       controller: this,
       request
     })
 
-    return runner
+    return manager
   }
 
   public copyTestsStatusFromResultFiles () {

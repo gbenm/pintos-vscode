@@ -2,7 +2,7 @@ import { TestRunRequest } from "vscode"
 import { TestController, TestLotProcess, TestRunProfile } from "../PintosTestController"
 import TestRunner from "./TestRunner"
 
-export default class ExecuteTestProfile extends TestRunProfile {
+export default class TestExecuteProfile extends TestRunProfile {
   private constructor (controller: TestController) {
     super({
       label: "Execute test profile",
@@ -20,6 +20,6 @@ export default class ExecuteTestProfile extends TestRunProfile {
   }
 
   static create (controller: TestController) {
-    return new ExecuteTestProfile(controller)
+    return new TestExecuteProfile(controller)
   }
 }

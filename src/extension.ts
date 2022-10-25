@@ -5,7 +5,7 @@ import createPintosProject from "./vscode/createPintosProject"
 import PintosTestController, { TestRunProfilesBuilders } from "./vscode/PintosTestController"
 import reflectTestsStatusFromResultFiles from "./vscode/reflectTestsStatusFromResultFiles"
 import resetTestController from "./vscode/resetTestController"
-import ExecuteTestProfile from "./vscode/run/ExecuteTestProfile"
+import TestExecuteProfile from "./vscode/run/ExecuteTestProfile"
 import setupDevContainer from "./vscode/setupDevContainer"
 import { getCurrentWorkspaceUri, createScopedHandler, uriFromCurrentWorkspace, existsInWorkspace } from "./vscode/utils"
 
@@ -34,7 +34,7 @@ export async function activate(context: vscode.ExtensionContext) {
   vscode.commands.executeCommand("setContext", "pintos.supported", pintosSupported)
 
   const testRunProfilesBuilders: TestRunProfilesBuilders = [
-    ExecuteTestProfile.create
+    TestExecuteProfile.create
   ]
 
   if (pintosSupported) {

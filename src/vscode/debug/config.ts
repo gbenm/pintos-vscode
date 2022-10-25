@@ -1,10 +1,10 @@
 import { uriFromCurrentWorkspace } from "../utils"
 
-export function addGDBMacrosToPath () {
+export function addGdbMacrosToPath () {
   process.env.GDBMACROS = uriFromCurrentWorkspace("misc", "gdb-macros").fsPath
 }
 
-export function pintosGDBConfig ({ phase }: { phase: string }) {
+export function pintosGdbConfig ({ phase }: { phase: string }) {
  return {
     name: "PintOS GDB",
     type: "cppdbg",

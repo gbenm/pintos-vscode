@@ -79,7 +79,7 @@ export default class PintosTestController extends VSCTestController {
   public output?: vscode.OutputChannel
 
   private queue: TestLotProcess[] = []
-  private currentRunner: TestLotProcess | null = null
+  private currentTestProcess: TestLotProcess | null = null
   private readonly rootPath: string = getCurrentWorkspaceUri().fsPath
   private readonly disposables: vscode.Disposable[] = []
 
@@ -167,9 +167,9 @@ export default class PintosTestController extends VSCTestController {
     const [firstTest] = request.include || iterLikeTolist(this.items)
     const testid = firstTest.id
 
-    if (this.currentRunner?.includes(testid)) {
-      this.currentRunner.cancel()
-      this.currentRunner = null
+    if (this.currentTestProcess?.includes(testid)) {
+      this.currentTestProcess.cancel()
+      this.currentTestProcess = null
       this.dequeueAndRunUntilEmpty()
     } else {
       this.queue = this.queue.filter(runner => runner.includes(testid))
@@ -177,19 +177,19 @@ export default class PintosTestController extends VSCTestController {
   }
 
   private async dequeueAndRunUntilEmpty() {
-    if (this.currentRunner) {
+    if (this.currentTestProcess) {
       throw new Error("wait until the current process finish")
     }
 
     if (this.queue.length > 0) {
-      const runner = this.queue.shift()!
-      this.currentRunner = runner
+      const testProcess = this.queue.shift()!
+      this.currentTestProcess = testProcess
       this.output?.show()
-      await scopedCommand({
+      await createScopedHandler(scopedCommand, {
         cwd: getCurrentWorkspaceUri().fsPath,
-        execute: () => runner.start()
-      })
-      this.currentRunner = null
+        execute: () => testProcess.start()
+      })()
+      this.currentTestProcess = null
       this.dequeueAndRunUntilEmpty()
     }
   }
@@ -276,17 +276,21 @@ export default class PintosTestController extends VSCTestController {
     this.rootTests.forEach((rootTest) => iterableForEach(test => setStatusFromResultFile(test), rootTest.testLeafs))
   }
 
-  public enqueue(runner: TestLotProcess) {
-    if (this.isEnqueued(runner)) {
-      runner.dispose()
+  public enqueue(testLotProcess: TestLotProcess) {
+    if (this.isEnqueued(testLotProcess)) {
+      testLotProcess.dispose()
       vscode.window.showWarningMessage("The test is already in the run process")
       return
     }
 
-    this.queue.push(runner)
-    runner.markAsEnqueued()
+    if (this.queue.length > 0 && !testLotProcess.canWait()) {
+      return
+    }
 
-    if (!this.currentRunner) {
+    this.queue.push(testLotProcess)
+    testLotProcess.markAsEnqueued()
+
+    if (!this.currentTestProcess) {
       this.dequeueAndRunUntilEmpty()
     }
   }
@@ -295,7 +299,7 @@ export default class PintosTestController extends VSCTestController {
     const [firstTest] = runner.tests
     const testid = firstTest.gid
 
-    return this.currentRunner?.includes(testid) || !!this.queue.find(runner => runner.includes(testid))
+    return this.currentTestProcess?.includes(testid) || !!this.queue.find(runner => runner.includes(testid))
   }
 
   public discoverTests(): Promise<TestItem<vscode.TestItem>[]> {
@@ -358,7 +362,7 @@ export default class PintosTestController extends VSCTestController {
   }
 
   public isWithinActiveTestRunners(testid: string) {
-    return !!this.currentRunner && this.currentRunner.includes(testid)
+    return !!this.currentTestProcess && this.currentTestProcess.includes(testid)
   }
 
   public findTestByResultFile(file: string) {
@@ -517,11 +521,14 @@ export abstract class TestLotProcess extends TestLotUiManager {
   }
 
   public async start() {
-    this.enqueued = true
-    this.tests.forEach((item) => iterableForEach(test => test.status = "started", item.testLeafs))
-    await this.dequeueAndRunUntilEmpty()
-    this.enqueued = false
-    this.dispose()
+    try {
+      this.enqueued = true
+      this.tests.forEach((item) => iterableForEach(test => test.status = "started", item.testLeafs))
+      await this.dequeueAndRunUntilEmpty()
+    } finally {
+      this.enqueued = false
+      this.dispose()
+    }
   }
 
   public cancel () {
@@ -542,6 +549,10 @@ export abstract class TestLotProcess extends TestLotUiManager {
       this.currentProcess = null
       await this.dequeueAndRunUntilEmpty()
     }
+  }
+
+  public canWait () {
+    return true
   }
 
   protected abstract execute(test: TestItem<vscode.TestItem>): Promise<void>

@@ -1,7 +1,7 @@
 {
   "name": "pintos",
   "displayName": "PintOS",
-  "description": "pintos runtime",
+  "description": "Pintos tools, testing and debugging",
   "version": "0.3.0",
   "publisher": "gbenm",
   "repository": {
@@ -12,7 +12,7 @@
     "vscode": "^1.68.0"
   },
   "categories": [
-    "Other"
+    "Testing", "Debuggers", "Education"
   ],
   "activationEvents": [
     "onCommand:pintos.createNewProject",

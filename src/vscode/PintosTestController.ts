@@ -283,7 +283,9 @@ export default class PintosTestController extends VSCTestController {
       return
     }
 
-    if (this.queue.length > 0 && !testLotProcess.canWait()) {
+    const isBusy = this.queue.length > 0 || !!this.currentTestProcess
+    if (isBusy && !testLotProcess.canWait()) {
+      testLotProcess.dispose()
       return
     }
 
@@ -577,7 +579,7 @@ export abstract class TestRunProfile {
       label,
       kind,
       (request, token) => {
-        console.log(`[DEV] Test Run Request: ${request.include?.map(t => t.label) || "All Tests"}`)
+        console.log(`[DEV] (${label}) Test Run Request: ${request.include?.map(t => t.label) || "All Tests"}`)
         if (token.isCancellationRequested) {
           controller.cancel(request)
         } else {

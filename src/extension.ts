@@ -2,6 +2,8 @@ import * as vscode from "vscode"
 import checkPintosHealth from "./vscode/checkPintosHealth"
 import { Config } from "./vscode/config"
 import createPintosProject from "./vscode/createPintosProject"
+import { addGdbMacrosToPath } from "./vscode/debug/config"
+import TestDebugProfile from "./vscode/debug/Profile"
 import PintosTestController, { TestRunProfilesBuilders } from "./vscode/PintosTestController"
 import reflectTestsStatusFromResultFiles from "./vscode/reflectTestsStatusFromResultFiles"
 import resetTestController from "./vscode/resetTestController"
@@ -34,7 +36,8 @@ export async function activate(context: vscode.ExtensionContext) {
   vscode.commands.executeCommand("setContext", "pintos.supported", pintosSupported)
 
   const testRunProfilesBuilders: TestRunProfilesBuilders = [
-    TestExecuteProfile.create
+    TestExecuteProfile.create,
+    TestDebugProfile.create
   ]
 
   if (pintosSupported) {
@@ -53,6 +56,7 @@ export async function activate(context: vscode.ExtensionContext) {
   )
 
   if (hasActiveTestController(currentTestControllerWrapper)) {
+    addGdbMacrosToPath()
     context.subscriptions.push(
       vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, context, output, currentTestControllerWrapper, testRunProfilesBuilders)),
       vscode.commands.registerCommand("pintos.reflectTestsStatusFromResultFiles", createScopedHandler(reflectTestsStatusFromResultFiles, currentTestControllerWrapper)),

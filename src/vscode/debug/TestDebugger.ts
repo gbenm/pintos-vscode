@@ -8,6 +8,7 @@ import { executeOrStopOnError, PintOSExtensionError } from "../errors"
 import { TestController, TestLotProcess } from "../PintosTestController"
 import { pickOptions, showStopMessage } from "../utils"
 import { pintosGdbConfig } from "./config"
+import { setupPintosDebugger } from "../../core/debug/utils"
 
 export default class TestDebugger extends TestLotProcess {
   private gdbServer?: ChildProcessWithoutNullStreams
@@ -29,6 +30,8 @@ export default class TestDebugger extends TestLotProcess {
     if (test.isComposite) {
       throw new PintOSExtensionError("Can't debug a composite test")
     }
+
+    setupPintosDebugger()
 
     const [scheduler] = await executeOrStopOnError({
       message: "Canceled debug session",

@@ -566,14 +566,16 @@ export abstract class TestRunProfile {
   readonly profile: vscode.TestRunProfile
   readonly controller: TestController
 
-  constructor ({ controller, label }: {
+  constructor ({ controller, label, isDefault = false, kind }: {
     controller: TestController
     label: string
+    isDefault?: boolean
+    kind: vscode.TestRunProfileKind
   }) {
     this.controller = controller
     this.profile = controller.createRunProfile(
       label,
-      vscode.TestRunProfileKind.Run,
+      kind,
       (request, token) => {
         console.log(`[DEV] Test Run Request: ${request.include?.map(t => t.label) || "All Tests"}`)
         if (token.isCancellationRequested) {
@@ -583,7 +585,7 @@ export abstract class TestRunProfile {
           controller.enqueue(runner)
         }
       },
-      true
+      isDefault
     )
   }
 

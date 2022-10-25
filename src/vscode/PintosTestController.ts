@@ -5,13 +5,13 @@ import { childProcessToPromise, scopedCommand, ScopedCommandExecutor } from "../
 import { getCurrentWorkspaceUri, pickOptions, showStopMessage, createScopedHandler, uriFromCurrentWorkspace } from "./utils"
 import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, onMissingTestDir, splitTestId } from "../core/grade/utils"
 import { bind, iterableForEach, iterLikeTolist, prop, waitForEach, waitMap } from "../core/utils/fp/common"
-import { FunctionsOf } from "../core/types"
 import { cleanAndCompilePhase } from "../core/grade/compile"
 import { setStatusFromResultFile } from "../core/grade/run"
 import { executeOrStopOnError } from "./errors"
 import { ChildProcessWithoutNullStreams } from "node:child_process"
 import colors from "../core/utils/colors"
 import PintosTestsFsWatcher from "./PintosTestsFsWatcher"
+import Storage from "./Storage"
 
 export interface TestController extends vscode.TestController {
   readonly rootTests: readonly TestItem<vscode.TestItem>[]
@@ -568,49 +568,5 @@ class TestRunner extends TestLotProcess {
     })
   }
 }
-
-
-class Storage implements vscode.Memento {
-  private readonly prefix: string
-
-  constructor (
-    private readonly memento: vscode.Memento,
-    public readonly name: string
-  ) {
-    this.prefix = `@${name}:`
-  }
-
-  keys(): readonly string[] {
-    return this.memento.keys().filter(
-      name => name.startsWith(this.prefix)
-    )
-  }
-
-  get<T>(key: string): T | undefined
-  get<T>(key: string, defaultValue: T): T
-  get<T>(key: string, defaultValue?: T | undefined): T | undefined {
-    const fullKey = this.prefix.concat(key)
-    if (typeof defaultValue === "undefined") {
-      return this.memento.get<T>(fullKey)
-    }
-
-    return this.memento.get<T>(fullKey, defaultValue)
-  }
-
-  update(key: string, value: any): Thenable<void> {
-    const fullKey = this.prefix.concat(key)
-    return this.memento.update(fullKey, value)
-  }
-
-  of (baseKey: string): SubStorage {
-    return new Proxy(this, {
-      get (target: SubStorage, method: keyof SubStorage) {
-        return (key: string, ...args: [any]) => target[method](`${baseKey}.${key}`, ...args)
-      }
-    })
-  }
-}
-
-export type SubStorage = Pick<FunctionsOf<Storage>, "get" | "update" | "of">
 
 export const vsctestDescription = (backless: boolean) => backless ? "(backless)" : ""

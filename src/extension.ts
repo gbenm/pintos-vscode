@@ -2,9 +2,10 @@ import * as vscode from "vscode"
 import checkPintosHealth from "./vscode/checkPintosHealth"
 import { Config } from "./vscode/config"
 import createPintosProject from "./vscode/createPintosProject"
-import PintosTestController from "./vscode/PintosTestController"
+import PintosTestController, { TestRunProfilesBuilders } from "./vscode/PintosTestController"
 import reflectTestsStatusFromResultFiles from "./vscode/reflectTestsStatusFromResultFiles"
 import resetTestController from "./vscode/resetTestController"
+import ExecuteTestProfile from "./vscode/run/ExecuteTestProfile"
 import setupDevContainer from "./vscode/setupDevContainer"
 import { getCurrentWorkspaceUri, createScopedHandler, uriFromCurrentWorkspace, existsInWorkspace } from "./vscode/utils"
 
@@ -32,11 +33,16 @@ export async function activate(context: vscode.ExtensionContext) {
 
   vscode.commands.executeCommand("setContext", "pintos.supported", pintosSupported)
 
+  const testRunProfilesBuilders: TestRunProfilesBuilders = [
+    ExecuteTestProfile.create
+  ]
+
   if (pintosSupported) {
     currentTestControllerWrapper.controller = await PintosTestController.create({
       phases: Config.pintosPhases,
       context,
-      output
+      output,
+      profilesBuilders: testRunProfilesBuilders
     })
   }
 
@@ -48,7 +54,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   if (hasActiveTestController(currentTestControllerWrapper)) {
     context.subscriptions.push(
-      vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, context, output, currentTestControllerWrapper)),
+      vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, context, output, currentTestControllerWrapper, testRunProfilesBuilders)),
       vscode.commands.registerCommand("pintos.reflectTestsStatusFromResultFiles", createScopedHandler(reflectTestsStatusFromResultFiles, currentTestControllerWrapper)),
       currentTestControllerWrapper
     )

@@ -23,6 +23,8 @@ export interface TestController extends vscode.TestController {
   findTestByResultFile(file: string): TestItem<vscode.TestItem> | null
   isWithinActiveTestRunners(testid: string): boolean
   createTestRunner (request?: Partial<vscode.TestRunRequest>): TestRunner
+  cancel(request: vscode.TestRunRequest): void
+  enqueue(runner: TestLotProcess): void
 }
 
 
@@ -68,17 +70,17 @@ export abstract class VSCTestController implements TestController, vscode.Dispos
   abstract findTestByResultFile(file: string): TestItem<vscode.TestItem> | null
   abstract isWithinActiveTestRunners(testid: string): boolean
   abstract createTestRunner(request?: Partial<vscode.TestRunRequest>): TestRunner
+  abstract cancel(request: vscode.TestRunRequest): void
+  abstract enqueue(runner: TestLotProcess): void
 }
 
 export default class PintosTestController extends VSCTestController {
-  public readonly runProfile: vscode.TestRunProfile
-
   public rootTests: readonly TestItem<vscode.TestItem>[] = []
   public readonly allTests: Map<string, TestItem<vscode.TestItem>> = new Map()
   public output?: vscode.OutputChannel
 
-  private queue: TestRunner[] = []
-  private currentRunner: TestRunner | null = null
+  private queue: TestLotProcess[] = []
+  private currentRunner: TestLotProcess | null = null
   private readonly rootPath: string = getCurrentWorkspaceUri().fsPath
   private readonly disposables: vscode.Disposable[] = []
 
@@ -87,21 +89,6 @@ export default class PintosTestController extends VSCTestController {
     public readonly phases: string[]
   ) {
     super()
-    this.runProfile = this.createRunProfile(
-      "run profile",
-      vscode.TestRunProfileKind.Run,
-      (request, token) => {
-        console.log(`[DEV] Test Run Request: ${request.include?.map(t => t.label) || "All Tests"}`)
-        if (token.isCancellationRequested) {
-          this.cancel(request)
-        } else {
-          const runner = this.createTestRunner(request)
-          this.enqueue(runner)
-        }
-      },
-      true
-    )
-
     this.vscTestController.refreshHandler = createScopedHandler(async (token: vscode.CancellationToken): Promise<void> => {
       let currentProcess: ChildProcessWithoutNullStreams | undefined
       let stop = false
@@ -177,7 +164,7 @@ export default class PintosTestController extends VSCTestController {
     })
   }
 
-  private cancel(request: vscode.TestRunRequest) {
+  public cancel(request: vscode.TestRunRequest) {
     const [firstTest] = request.include || iterLikeTolist(this.items)
     const testid = firstTest.id
 
@@ -212,6 +199,7 @@ export default class PintosTestController extends VSCTestController {
     phases: string[]
     context: vscode.ExtensionContext
     output?: vscode.OutputChannel
+    profilesBuilders: TestRunProfilesBuilders
   }): Promise<PintosTestController> {
     const storage = new Storage(descriptor.context.workspaceState, "testController")
     const controller = new PintosTestController(storage, descriptor.phases)
@@ -229,6 +217,10 @@ export default class PintosTestController extends VSCTestController {
       test.data.label = `Phase ${i + 1} (${test.phase})`
       controller.items.add(test.data)
     })
+
+    descriptor.profilesBuilders.forEach(
+      build => build(controller)
+    )
 
     controller.reflectCurrentTestsStatusInUI()
 
@@ -285,7 +277,7 @@ export default class PintosTestController extends VSCTestController {
     this.rootTests.forEach((rootTest) => iterableForEach(test => setStatusFromResultFile(test), rootTest.testLeafs))
   }
 
-  public enqueue(runner: TestRunner) {
+  public enqueue(runner: TestLotProcess) {
     if (this.isEnqueued(runner)) {
       runner.dispose()
       vscode.window.showWarningMessage("The test is already in the run process")
@@ -300,7 +292,7 @@ export default class PintosTestController extends VSCTestController {
     }
   }
 
-  public isEnqueued(runner: TestRunner): boolean {
+  public isEnqueued(runner: TestLotProcess): boolean {
     const [firstTest] = runner.tests
     const testid = firstTest.gid
 
@@ -405,7 +397,10 @@ export default class PintosTestController extends VSCTestController {
 }
 
 
-class TestLotUiManager implements vscode.Disposable {
+export type TestRunProfilesBuilders = Array<(controller: TestController) => TestRunProfile>
+
+
+export class TestLotUiManager implements vscode.Disposable {
   public readonly tests: readonly TestItem<vscode.TestItem>[]
 
   protected readonly testRun: vscode.TestRun
@@ -555,3 +550,32 @@ export abstract class TestLotProcess extends TestLotUiManager {
 
 
 export const vsctestDescription = (backless: boolean) => backless ? "(backless)" : ""
+
+
+export abstract class TestRunProfile {
+  readonly profile: vscode.TestRunProfile
+  readonly controller: TestController
+
+  constructor ({ controller, label }: {
+    controller: TestController
+    label: string
+  }) {
+    this.controller = controller
+    this.profile = controller.createRunProfile(
+      label,
+      vscode.TestRunProfileKind.Run,
+      (request, token) => {
+        console.log(`[DEV] Test Run Request: ${request.include?.map(t => t.label) || "All Tests"}`)
+        if (token.isCancellationRequested) {
+          controller.cancel(request)
+        } else {
+          const runner = this.createProcess(request)
+          controller.enqueue(runner)
+        }
+      },
+      true
+    )
+  }
+
+  abstract createProcess (request: vscode.TestRunRequest): TestLotProcess
+}

@@ -51,4 +51,13 @@ export async function setupDevContainer({ output, exists, mkdir, writeFile }: {
       output.appendLine(`${composeFile} created successfully`)
     }
   })
+
+  const containerDir = "container/"
+  conditionalExecute({
+    condition: !await exists(containerDir),
+    async execute() {
+      await mkdir(containerDir)
+      output.appendLine(`${containerDir} created successfully`)
+    }
+  })
 }

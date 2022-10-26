@@ -5,6 +5,7 @@ import { Fn, OptionalPromiseLike, OutputChannel } from "../types"
 import { iterableForEach, prop, waitMap } from "../utils/fp/common"
 import { add, and, or } from "../utils/fp/math"
 import { existsfile, rmfile } from "./utils"
+import PintosShell from "../launch/PintosShell"
 
 export const finalStates: TestStatus[] = ["errored", "failed", "passed", "skipped", "unknown"]
 
@@ -228,17 +229,14 @@ export class TestItem<T = any> extends EventEmitter implements Iterable<TestItem
     return await existsfile(this.resultFile)
   }
 
-  public async run(context: {
-    output?: OutputChannel
-    [metadata: string]: unknown
-  } = {}): Promise<TestStatus> {
+  public async run(context: TestRunRequestContext): Promise<TestStatus> {
     let status: TestStatus = "errored"
     this.lockStatus = true
     try {
       if (this.runBlocked) {
         status = "unknown"
       } else {
-        const request = {
+        const request: TestRunRequest<T> = {
           item: this,
           ...context
         }
@@ -358,10 +356,14 @@ export type TestRunner<T = any> = (request: TestRunRequest<T>) => OptionalPromis
 
 export type BeforeRunEvent<T = any> = (request: TestRunRequest<T>) => OptionalPromiseLike<boolean>
 
-export interface TestRunRequest<T = any> {
-  item: TestItem<T>,
+export interface TestRunRequestContext {
+  shell: PintosShell,
   output?: OutputChannel
   [metadata: string]: unknown
+}
+
+export interface TestRunRequest<T = any> extends TestRunRequestContext {
+  item: TestItem<T>,
 }
 
 export type TestStatus = "passed"

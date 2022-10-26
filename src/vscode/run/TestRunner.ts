@@ -13,7 +13,8 @@ export default class TestRunner extends TestLotProcess {
   protected async execute(test: TestItem<vscode.TestItem>): Promise<void> {
     await test.run({
       output: this.controller.output,
-      runningTestid: test.gid
+      runningTestid: test.gid,
+      shell: this.shell
     })
   }
 }

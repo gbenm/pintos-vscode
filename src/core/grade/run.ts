@@ -1,18 +1,17 @@
 import { existsSync, readFileSync } from "fs"
-import { childProcessToPromise, spawnCommand } from "../launch"
+import { childProcessToPromise } from "../launch"
 import { curry, iterableForEach, waitMap } from "../utils/fp/common"
 import { finalStates, TestItem, TestRunRequest, TestStatus } from "./TestItem"
 
-export async function runSpecificTest({ item, output }: TestRunRequest): Promise<TestStatus> {
+export async function runSpecificTest({ item, output, shell }: TestRunRequest): Promise<TestStatus> {
   if (item.isComposite) {
     throw new Error(`${item.name} must be a file test`)
   }
 
   output?.appendLine(startMessageOf(item))
 
-  const testProcess = spawnCommand({
+  const testProcess = shell.make({
     cwd: item.phase,
-    cmd: "make",
     args: [item.makefileTarget]
   })
 
@@ -58,14 +57,13 @@ export async function runInnerTests({ item, ...context }: TestRunRequest): Promi
 }
 
 
-export async function runPintosPhase({ item, output }: TestRunRequest): Promise<TestStatus> {
+export async function runPintosPhase({ item, output, shell }: TestRunRequest): Promise<TestStatus> {
   output?.appendLine(startMessageOf(item))
 
   let status: TestStatus = "errored"
 
   try {
-    const testProcess = spawnCommand({
-      cmd: "make",
+    const testProcess = shell.make({
       args: ["grade"],
       cwd: item.phase
     })

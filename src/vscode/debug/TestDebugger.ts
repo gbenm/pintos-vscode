@@ -9,6 +9,7 @@ import { TestController, TestLotProcess } from "../PintosTestController"
 import { pickOptions, showStopMessage } from "../utils"
 import { pintosGdbConfig } from "./config"
 import { setupPintosDebugger } from "../../core/debug/utils"
+import { KernelScheduler } from "../../core/launch/types"
 
 export default class TestDebugger extends TestLotProcess {
   private gdbServer?: ChildProcessWithoutNullStreams
@@ -35,10 +36,10 @@ export default class TestDebugger extends TestLotProcess {
 
     const [scheduler] = await executeOrStopOnError({
       message: "Canceled debug session",
-      execute: () => pickOptions<{ label: string, value: "priority" | "mlfqs" }, "priority" | "mlfqs">({
+      execute: () => pickOptions<{ label: string, value: KernelScheduler }, KernelScheduler>({
         title: "Choose the scheduler",
         options: [
-          { label: "Priority Scheduler", value: "priority" },
+          { label: "PintOS Default Scheduler", value: "default" },
           { label: "MLFQS", value: "mlfqs" }
         ],
         mapFn: option => option.value
@@ -68,10 +69,11 @@ export default class TestDebugger extends TestLotProcess {
     )
   }
 
-  private async startGdbServer (test: TestItem, scheduler: "priority" | "mlfqs") {
+  private async startGdbServer (test: TestItem, scheduler: KernelScheduler) {
     this.gdbServer = gdbServer({
       test,
-      scheduler
+      scheduler,
+      shell: this.shell
     })
 
     await childProcessToPromise({

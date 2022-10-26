@@ -12,11 +12,13 @@ import { ChildProcessWithoutNullStreams } from "node:child_process"
 import colors from "../core/utils/colors"
 import PintosTestsFsWatcher from "./PintosTestsFsWatcher"
 import Storage from "./Storage"
+import PintosShell from "../core/launch/PintosShell"
 
 export interface TestController extends vscode.TestController {
   readonly rootTests: readonly TestItem<vscode.TestItem>[]
   readonly allTests: ReadonlyMap<string, TestItem<vscode.TestItem>>
   readonly output?: Readonly<vscode.OutputChannel>
+  readonly shell: PintosShell
 
   saveLastExecutionTimeOf (testid: string, milliseconds: number | undefined): void
   findTestByResultFile(file: string): TestItem<vscode.TestItem> | null
@@ -28,6 +30,7 @@ export interface TestController extends vscode.TestController {
 
 
 export abstract class VSCTestController implements TestController, vscode.Disposable {
+  public shell: PintosShell
   protected vscTestController: vscode.TestController
 
   public get id () {
@@ -55,6 +58,7 @@ export abstract class VSCTestController implements TestController, vscode.Dispos
     this.createTestRun = this.vscTestController.createTestRun
     this.refreshHandler = this.vscTestController.refreshHandler
     this.resolveHandler = this.vscTestController.resolveHandler
+    this.shell = PintosShell.create()
   }
 
   dispose(): void {
@@ -512,6 +516,7 @@ export class TestLotUiManager implements vscode.Disposable {
 export abstract class TestLotProcess extends TestLotUiManager {
   protected queue: TestItem<vscode.TestItem>[]
   protected currentProcess: TestItem<vscode.TestItem> | null = null
+  protected shell: PintosShell
 
   constructor (args: {
     request: Partial<vscode.TestRunRequest>
@@ -520,6 +525,7 @@ export abstract class TestLotProcess extends TestLotUiManager {
   }) {
     super(args)
     this.queue = [...this.tests]
+    this.shell = this.controller.shell
   }
 
   public async start() {

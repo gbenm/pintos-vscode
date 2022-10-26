@@ -16,6 +16,7 @@
     "Debuggers",
     "Education"
   ],
+  "extensionKind": ["workspace", "ui"],
   "activationEvents": [
     "onCommand:pintos.createNewProject",
     "workspaceContains:utils/pintos"

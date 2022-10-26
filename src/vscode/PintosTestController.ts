@@ -13,6 +13,7 @@ import colors from "../core/utils/colors"
 import PintosTestsFsWatcher from "./PintosTestsFsWatcher"
 import Storage from "./Storage"
 import PintosShell from "../core/launch/PintosShell"
+import { Config } from "./config"
 
 export interface TestController extends vscode.TestController {
   readonly rootTests: readonly TestItem<vscode.TestItem>[]
@@ -58,7 +59,13 @@ export abstract class VSCTestController implements TestController, vscode.Dispos
     this.createTestRun = this.vscTestController.createTestRun
     this.refreshHandler = this.vscTestController.refreshHandler
     this.resolveHandler = this.vscTestController.resolveHandler
-    this.shell = PintosShell.create()
+    const nativeKill = Config.useNodejsNativeKill
+
+    if (nativeKill) {
+      console.warn("Some children processes could not be killed if you use the native kill")
+    }
+
+    this.shell = PintosShell.create({ nativeKill })
   }
 
   dispose(): void {

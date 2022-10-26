@@ -109,6 +109,11 @@
           "default": true,
           "description": "The extension adds the utils path to the PATH in this process, without modify your configuration files"
         },
+        "pintos.useNodejsNativeKill": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "(not recommended) use the native [subprocess.kill](https://nodejs.org/api/child_process.html#subprocesskillsignal)"
+        },
         "pintos.buildUtils": {
           "type": "boolean",
           "default": true,

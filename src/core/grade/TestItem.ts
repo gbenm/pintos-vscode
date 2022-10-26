@@ -261,7 +261,7 @@ export class TestItem<T = any> extends EventEmitter implements Iterable<TestItem
     return status
   }
 
-  public stop(signal: NodeJS.Signals = "SIGTERM"): boolean {
+  public stop(signal: NodeJS.Signals | undefined = undefined): boolean {
     let killed = false
 
     if (!this.process && this.isComposite) {

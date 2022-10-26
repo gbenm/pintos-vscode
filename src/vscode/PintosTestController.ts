@@ -584,7 +584,7 @@ export abstract class TestRunProfile {
     this.profile = controller.createRunProfile(
       label,
       kind,
-      (request, token) => {
+      createScopedHandler((request: vscode.TestRunRequest, token: vscode.CancellationToken) => {
         console.log(`[DEV] (${label}) Test Run Request: ${request.include?.map(t => t.label) || "All Tests"}`)
         if (token.isCancellationRequested) {
           controller.cancel(request)
@@ -592,7 +592,7 @@ export abstract class TestRunProfile {
           const runner = this.createProcess(request)
           controller.enqueue(runner)
         }
-      },
+      }),
       isDefault
     )
   }

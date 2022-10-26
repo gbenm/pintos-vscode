@@ -7,6 +7,7 @@ import { resolve as resolvePath } from "node:path"
 import { removeSync } from "fs-extra"
 import { isPromise } from "node:util/types"
 import { conditionalExecute } from "../utils"
+import { SpawnOptions } from "./types"
 
 export function executeCommand({ output, cmd, cwd = process.cwd() }: {
   output?: OutputChannel
@@ -93,12 +94,7 @@ export type ScopedCommandExecutor<R> = ({ chdir }: {
     resetCwd: () => void
   }) => R
 
-export function spawnCommand({ cmd, args, cwd, env = {} }: {
-  cmd: string
-  args: string[]
-  cwd?: string,
-  env?: NodeJS.ProcessEnv
-}) {
+export function spawnCommand({ cmd, args, cwd, env = {} }: SpawnOptions) {
   const child = spawn(cmd, args, {
     cwd,
     shell: false,

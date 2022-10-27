@@ -1,6 +1,6 @@
 import { ChildProcess, ChildProcessWithoutNullStreams, execSync, spawn } from "node:child_process"
 import { ensureSingleValue } from "../utils/fp/arrays"
-import { OptionalPromise, OptionalPromiseLike, OutputChannel } from "../types"
+import { OutputChannel } from "../types"
 import { buildSingleCommand } from "./utils"
 import { existsSync, mkdir, mkdirSync } from "node:fs"
 import { resolve as resolvePath } from "node:path"

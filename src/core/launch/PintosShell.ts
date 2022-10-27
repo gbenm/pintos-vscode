@@ -39,7 +39,7 @@ export class SpawnRequest {
           kill(child.pid, signal)
           return true
         } else {
-          throw new Error("[DEV] child doesn't has pid")
+          return false
         }
       }
     }

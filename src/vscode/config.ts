@@ -1,4 +1,5 @@
 import * as vscode from "vscode"
+import { PintosSimulator } from "../core/launch/types"
 
 export class Config {
   static get baseRepository (): string {
@@ -51,6 +52,13 @@ export class Config {
     return this.required({
       key: "useNodejsNativeKill",
       value: this.config.get<boolean>("useNodejsNativeKill"),
+    })
+  }
+
+  static get pintosSimulator (): PintosSimulator {
+    return this.required({
+      key: "simulator",
+      value: this.config.get<PintosSimulator>("simulator")
     })
   }
 

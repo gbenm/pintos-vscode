@@ -10,6 +10,7 @@ import { pickOptions, showStopMessage } from "../utils"
 import { pintosGdbConfig } from "./config"
 import { setupPintosDebugger } from "../../core/debug/utils"
 import { KernelScheduler } from "../../core/launch/types"
+import { Config } from "../config"
 
 export default class TestDebugger extends TestLotProcess {
   private gdbServer?: ChildProcessWithoutNullStreams
@@ -73,7 +74,8 @@ export default class TestDebugger extends TestLotProcess {
     this.gdbServer = gdbServer({
       test,
       scheduler,
-      shell: this.shell
+      shell: this.shell,
+      simulator: Config.pintosSimulator
     })
 
     await childProcessToPromise({

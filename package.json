@@ -118,6 +118,11 @@
           "type": "boolean",
           "default": true,
           "description": "When launch \"pintos health\" command, execute \"cd utils && make\" before"
+        },
+        "pintos.simulator": {
+          "enum": ["qemu", "bochs"],
+          "default": "qemu",
+          "description": "The simulator to be used when extension uses pintos cli directly"
         }
       }
     }

@@ -2,7 +2,7 @@ import { ChildProcess, ChildProcessWithoutNullStreams, execSync, spawn } from "n
 import { ensureSingleValue } from "../utils/fp/arrays"
 import { OutputChannel } from "../types"
 import { buildSingleCommand } from "./utils"
-import { existsSync, mkdir, mkdirSync } from "node:fs"
+import { existsSync, mkdirSync } from "node:fs"
 import { resolve as resolvePath } from "node:path"
 import { removeSync } from "fs-extra"
 import { isPromise } from "node:util/types"

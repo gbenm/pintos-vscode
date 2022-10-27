@@ -4,6 +4,7 @@
   "description": "Pintos tools, testing and debugging",
   "version": "0.4.1",
   "publisher": "gbenm",
+  "icon": "assets/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/gbenm/pintos-vscode"

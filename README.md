@@ -31,3 +31,6 @@ for full documenation (only in spanish)
 - `pintos.baseRepository` the repo URL to get a snapshot of pintos code
 - `pintos.baseRepositoryCodeFolder` the folder containing the source code of PintOS, if your Git supports sparse checkout only clon the folder (with the original project the size will be reduced from 30MB to ~11MB)
 - `pintos.personalRepoUrl` the Url of your personal repository
+
+## Credits
+Extension icon by [Flat Icons](https://www.flaticon.com/authors/flat-icons) - [Flaticon](https://www.flaticon.com)

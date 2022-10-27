@@ -2,7 +2,7 @@
   "name": "pintos",
   "displayName": "PintOS",
   "description": "Pintos tools, testing and debugging",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "publisher": "gbenm",
   "repository": {
     "type": "git",
@@ -120,7 +120,10 @@
           "description": "When launch \"pintos health\" command, execute \"cd utils && make\" before"
         },
         "pintos.simulator": {
-          "enum": ["qemu", "bochs"],
+          "enum": [
+            "qemu",
+            "bochs"
+          ],
           "default": "qemu",
           "description": "The simulator to be used when extension uses pintos cli directly"
         }

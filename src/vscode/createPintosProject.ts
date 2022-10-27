@@ -87,17 +87,44 @@ async function cloneSnapshot({ output, tempPath, clone }: {
 
   if (clone) {
     output.appendLine("PintOS start cloning...")
+    const controller = new AbortController()
     await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: "Cloning PintOS repository",
-        cancellable: false
+        cancellable: true
       },
-      () => clonePintosSnapshot({
-        localPath: tempPath,
-        repoUrl,
-        outputChannel: output,
-        codeFolder
-      })
+      async (progressController, token) => {
+        if (token.isCancellationRequested) {
+          return
+        }
+
+        token.onCancellationRequested(() => {
+          controller.abort()
+        })
+
+        let lastProgress = 0
+
+        return await executeOrStopOnError({
+          message: stopMessage,
+          execute: () => clonePintosSnapshot({
+            localPath: tempPath,
+            repoUrl,
+            abort: controller.signal,
+            outputChannel: output,
+            codeFolder,
+            progressHandler({ stage, progress }) {
+              const increment = progress - lastProgress
+              lastProgress = progress
+
+              progressController.report({
+                message: stage,
+                increment
+              })
+            },
+          }),
+          onError: showStopMessage(output)
+        })
+      }
     )
     output.appendLine("clone done!")
   }

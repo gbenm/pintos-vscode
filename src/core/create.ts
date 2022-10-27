@@ -1,4 +1,4 @@
-import simpleGit, { SimpleGit } from "simple-git"
+import simpleGit, { SimpleGit, SimpleGitProgressEvent } from "simple-git"
 import { OptionalPromiseLike, OutputChannel } from "./types"
 import { conditionalExecute } from "./utils"
 
@@ -20,16 +20,21 @@ const defaultGitAttributes = `# Don't normalize
 * -text
 `
 
-export async function clonePintosSnapshot({ localPath, outputChannel, repoUrl, codeFolder }: {
+export async function clonePintosSnapshot({ localPath, outputChannel, repoUrl, codeFolder, abort, progressHandler }: {
   repoUrl: string
   localPath: string
   codeFolder?: string | null
   outputChannel: OutputChannel
+  abort?: AbortSignal
+  progressHandler?: (data: SimpleGitProgressEvent) => void
 }) {
   const git = simpleGit({
     config: ["core.autocrlf=input"],
-    progress ({ method, progress, stage, processed, total }) {
+    abort,
+    progress (data) {
+      const { method, progress, stage, processed, total } = data
       outputChannel.appendLine(`git.${method} ${stage} stage ${progress}% complete ${processed}/${total}`)
+      progressHandler?.(data)
     }
   })
 

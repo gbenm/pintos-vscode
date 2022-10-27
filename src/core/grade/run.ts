@@ -70,8 +70,6 @@ export async function runPintosPhase({ item, output, shell }: TestRunRequest): P
 
     item.process = testProcess
 
-    iterableForEach(setStatusFromResultFile, item.testLeafs)
-
     let start = Date.now()
     await childProcessToPromise({
       process: testProcess,
@@ -110,6 +108,8 @@ export async function runPintosPhase({ item, output, shell }: TestRunRequest): P
         }
       }
     })
+
+    iterableForEach(setStatusFromResultFile, item.testLeafs, test => finalStates.includes(test.status))
 
     if (item.isComposite) {
       iterableForEach(test => test.status = "errored", item.testLeafs, test => test.status !== "unknown" && finalStates.includes(test.status))

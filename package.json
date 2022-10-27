@@ -2,7 +2,7 @@
   "name": "pintos",
   "displayName": "PintOS",
   "description": "Pintos tools, testing and debugging",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "gbenm",
   "repository": {
     "type": "git",

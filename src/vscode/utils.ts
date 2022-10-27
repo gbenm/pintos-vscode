@@ -103,6 +103,18 @@ export function createScopedHandler<Fn extends (...args: any[]) => OptionalPromi
   }
 }
 
+export function withErrorHandler<Fn extends (...args: any[]) => OptionalPromise<any>>(fn: Fn): (...args: Parameters<Fn>) => Promise<void>
+export function withErrorHandler<Fn extends (...args: any[]) => OptionalPromise<any>>(fn: Fn, ...args: Parameters<Fn>): () => Promise<void>
+export function withErrorHandler<Fn extends (...args: any[]) => OptionalPromise<any>>(fn: Fn, ...args: Parameters<Fn>): ((...args: Parameters<Fn>) => Promise<void>) | (() => Promise<void>) {
+  return async (...a: Parameters<Fn>) => {
+    try {
+      await fn(...(args.length > 0 ? args : a))
+    } catch (e) {
+      handleError(e)
+    }
+  }
+}
+
 export async function existsInWorkspace(...relativePath: string[]) {
   try {
     await vscode.workspace.fs.stat(uriFromCurrentWorkspace(...relativePath))

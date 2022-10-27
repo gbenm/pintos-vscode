@@ -102,11 +102,8 @@ export function spawnCommand({ cmd, args, cwd, env = {} }: SpawnOptions) {
     env: {
       ...process.env,
       ...env
-    },
-    detached: true,
+    }
   })
-
-  child.unref()
 
   return child
 }

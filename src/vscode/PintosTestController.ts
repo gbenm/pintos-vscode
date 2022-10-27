@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { ensureLookupTestsInPhase } from "../core/grade/lookup"
 import { TestItem, TestRunRequest, TestStatus } from "../core/grade/TestItem"
 import { childProcessToPromise, scopedCommand, ScopedCommandExecutor } from "../core/launch"
-import { getCurrentWorkspaceUri, pickOptions, showStopMessage, createScopedHandler, uriFromCurrentWorkspace } from "./utils"
+import { getCurrentWorkspaceUri, pickOptions, showStopMessage, createScopedHandler, uriFromCurrentWorkspace, withErrorHandler } from "./utils"
 import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, onMissingTestDir, splitTestId } from "../core/grade/utils"
 import { bind, iterableForEach, iterLikeTolist, prop, waitForEach, waitMap } from "../core/utils/fp/common"
 import { cleanAndCompilePhase } from "../core/grade/compile"
@@ -201,7 +201,7 @@ export default class PintosTestController extends VSCTestController {
         execute: () => testProcess.start()
       })()
       this.currentTestProcess = null
-      this.dequeueAndRunUntilEmpty()
+      await this.dequeueAndRunUntilEmpty()
     }
   }
 
@@ -591,7 +591,7 @@ export abstract class TestRunProfile {
     this.profile = controller.createRunProfile(
       label,
       kind,
-      createScopedHandler((request: vscode.TestRunRequest, token: vscode.CancellationToken) => {
+      withErrorHandler((request: vscode.TestRunRequest, token: vscode.CancellationToken) => {
         console.log(`[DEV] (${label}) Test Run Request: ${request.include?.map(t => t.label) || "All Tests"}`)
         if (token.isCancellationRequested) {
           controller.cancel(request)

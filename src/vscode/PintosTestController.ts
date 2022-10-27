@@ -407,6 +407,8 @@ export default class PintosTestController extends VSCTestController {
   }
 
   dispose(): void {
+    this.currentTestProcess?.cancel()
+    this.queue.forEach(p => p.cancel())
     this.disposables.forEach(disposable => disposable.dispose())
     super.dispose()
   }

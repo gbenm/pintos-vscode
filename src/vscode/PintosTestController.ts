@@ -229,7 +229,7 @@ export default class PintosTestController extends VSCTestController {
     })
 
     descriptor.profilesBuilders.forEach(
-      build => build(controller)
+      build => controller.disposables.push(build(controller))
     )
 
     controller.reflectCurrentTestsStatusInUI()
@@ -579,7 +579,7 @@ export abstract class TestLotProcess extends TestLotUiManager {
 export const vsctestDescription = (backless: boolean) => backless ? "(backless)" : ""
 
 
-export abstract class TestRunProfile {
+export abstract class TestRunProfile implements vscode.Disposable {
   readonly profile: vscode.TestRunProfile
   readonly controller: TestController
 
@@ -604,6 +604,10 @@ export abstract class TestRunProfile {
       }),
       isDefault
     )
+  }
+
+  dispose() {
+    this.profile.dispose()
   }
 
   abstract createProcess (request: vscode.TestRunRequest): TestLotProcess

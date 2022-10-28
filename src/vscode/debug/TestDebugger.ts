@@ -33,6 +33,9 @@ export default class TestDebugger extends TestLotProcess {
       throw new PintOSExtensionError("Can't debug a composite test")
     }
 
+    this.controller.output?.show()
+    await this.compileIfNeeded(test)
+
     setupPintosDebugger()
 
     const [scheduler] = await executeOrStopOnError({

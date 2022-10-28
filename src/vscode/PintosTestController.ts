@@ -526,6 +526,7 @@ export abstract class TestLotProcess extends TestLotUiManager {
   protected queue: TestItem<vscode.TestItem>[]
   protected currentProcess: TestItem<vscode.TestItem> | null = null
   protected shell: PintosShell
+  protected compiledPhases: string[] = []
 
   constructor (args: {
     request: Partial<vscode.TestRunRequest>
@@ -552,6 +553,24 @@ export abstract class TestLotProcess extends TestLotUiManager {
     this.queue = []
     this.currentProcess?.stop()
     super.cancel()
+  }
+
+  protected async compileIfNeeded (test: TestItem) {
+    if (!this.compiledPhases.includes(test.phase)) {
+      this.controller.output?.appendLine(`[make] compile ${test.name}\n`)
+      await childProcessToPromise({
+        process: this.shell.make({
+          cwd: test.phase,
+          args: []
+        }),
+        onData: (buffer: Buffer) => {
+          this.controller.output?.append(buffer.toString())
+        }
+      })
+      this.controller.output?.appendLine("")
+
+      this.compiledPhases.push(test.phase)
+    }
   }
 
   private async dequeueAndRunUntilEmpty() {

@@ -33,8 +33,6 @@ export default class TestDebugger extends TestLotProcess {
       throw new PintOSExtensionError("Can't debug a composite test")
     }
 
-    this.compilationAbortController = new AbortController()
-
     this.controller.output?.show()
     await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
@@ -46,7 +44,7 @@ export default class TestDebugger extends TestLotProcess {
         SpawnAbortRequest.of({ error: new PintOSExtensionCancellationError("Canceled compilation") })
       ))
 
-      return this.compileIfNeeded(test, this.compilationAbortController!.signal)
+      return this.compileIfNeeded(test)
     })
 
     setupPintosDebugger()

@@ -11,8 +11,7 @@ export default class TestRunner extends TestLotProcess {
   }
 
   protected async execute(test: TestItem<vscode.TestItem>): Promise<void> {
-    this.compilationAbortController = new AbortController()
-    await this.compileIfNeeded(test, this.compilationAbortController.signal)
+    await this.compileIfNeeded(test)
 
     await test.run({
       output: this.controller.output,

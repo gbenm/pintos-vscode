@@ -527,7 +527,11 @@ export abstract class TestLotProcess extends TestLotUiManager {
   protected currentProcess: TestItem<vscode.TestItem> | null = null
   protected shell: PintosShell
   protected compiledPhases: string[] = []
-  protected compilationAbortController?: AbortController
+  private _compilationAbortController?: AbortController
+
+  protected get compilationAbortController (): AbortController | undefined {
+    return this._compilationAbortController
+  }
 
   constructor (args: {
     request: Partial<vscode.TestRunRequest>
@@ -556,8 +560,9 @@ export abstract class TestLotProcess extends TestLotUiManager {
     super.cancel()
   }
 
-  protected async compileIfNeeded (test: TestItem, abort?: AbortSignal) {
+  protected async compileIfNeeded (test: TestItem) {
     if (!this.compiledPhases.includes(test.phase)) {
+      this._compilationAbortController = new AbortController()
       this.controller.output?.appendLine(`[make] compile ${test.name}\n`)
       await childProcessToPromise({
         process: this.shell.make({
@@ -567,7 +572,7 @@ export abstract class TestLotProcess extends TestLotUiManager {
         onData: (buffer: Buffer) => {
           this.controller.output?.append(buffer.toString())
         },
-        abort
+        abort: this.compilationAbortController?.signal
       })
       this.controller.output?.appendLine("")
 

@@ -109,38 +109,88 @@ export function spawnCommand({ cmd, args, cwd, env = {} }: SpawnOptions) {
 }
 
 export function childProcessToPromise(process: ChildProcessWithoutNullStreams): Promise<Buffer>
-export function childProcessToPromise({ process }: {
-  process: ChildProcessWithoutNullStreams
-}): Promise<Buffer>
-export function childProcessToPromise({ process, onData }: {
-  process: ChildProcessWithoutNullStreams
-  onData: (data: Buffer) => void
-}): Promise<void>
-export function childProcessToPromise(args: {
-  process: ChildProcessWithoutNullStreams,
-  onData?: (data: Buffer) => void
-} | ChildProcessWithoutNullStreams): Promise<void | Buffer> {
+export function childProcessToPromise(
+  { process }: {
+    process: ChildProcessWithoutNullStreams
+  }
+): Promise<Buffer>
+export function childProcessToPromise(
+  { process, onData }: {
+    process: ChildProcessWithoutNullStreams
+    onData: (data: Buffer) => void
+    abort?: AbortSignal
+  }
+): Promise<void>
+export function childProcessToPromise(
+  args: {
+    process: ChildProcessWithoutNullStreams,
+    onData?: (data: Buffer) => void
+    abort?: AbortSignal
+  } | ChildProcessWithoutNullStreams
+): Promise<void | Buffer> {
+
   let process: ChildProcessWithoutNullStreams
   let onData: ((data: Buffer) => void) | undefined
+  let abort: AbortSignal | undefined
   if (args instanceof ChildProcess) {
     process = <ChildProcessWithoutNullStreams> args
     onData = undefined
   } else {
     process = args.process
     onData = args.onData
+    abort = args.abort
   }
+
   return new Promise((resolve, reject) => {
+    const resolver = { resolve }
+
     if (onData) {
       process.stdout.on("data", onData)
       process.stderr.on("data", onData)
-      process.on("close", resolve)
     } else {
       const result: Buffer[] = []
-      process.stdout.on("data", (data: Buffer) => {
+      const concatToBuffer = (data: Buffer) => {
         result.push(data)
-      })
-      process.on("close", () => resolve(Buffer.concat(result)))
+      }
+
+      process.stdout.on("data", concatToBuffer)
+      process.stderr.on("data", concatToBuffer)
+      resolver.resolve = () => resolve(Buffer.concat(result))
     }
-    process.on("error", reject)
+
+
+    const killProcess = () => {
+      const request = abort?.reason!
+      if (request instanceof SpawnAbortRequest) {
+        reject(request.error)
+        process.kill(request.signal)
+      } else {
+        reject(request)
+        process.kill()
+      }
+    }
+
+    abort?.addEventListener("abort", killProcess)
+
+    const dispose = (fn: (...args: any[]) => void) => (...args: any[]) => {
+      process.stdout.removeAllListeners()
+      process.stderr.removeAllListeners()
+      abort?.removeEventListener("abort", killProcess)
+      fn(...args)
+    }
+
+    process.on("close", dispose(resolver.resolve))
+    process.on("error", dispose(reject))
   })
+}
+
+export class SpawnAbortRequest {
+  constructor (
+    public readonly signal?: NodeJS.Signals,
+    public readonly error?: Error
+  ) {}
+
+  static of ({ signal, error }: Pick<SpawnAbortRequest, "error" | "signal"> = {}) {
+    return new SpawnAbortRequest(signal, error)
+  }
 }

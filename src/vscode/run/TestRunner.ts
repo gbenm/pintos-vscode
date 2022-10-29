@@ -1,6 +1,5 @@
 import * as vscode from "vscode"
 import { TestItem } from "../../core/grade/TestItem"
-import { childProcessToPromise } from "../../core/launch"
 import { TestController, TestLotProcess } from "../PintosTestController"
 
 export default class TestRunner extends TestLotProcess {
@@ -12,7 +11,8 @@ export default class TestRunner extends TestLotProcess {
   }
 
   protected async execute(test: TestItem<vscode.TestItem>): Promise<void> {
-    await this.compileIfNeeded(test)
+    this.compilationAbortController = new AbortController()
+    await this.compileIfNeeded(test, this.compilationAbortController.signal)
 
     await test.run({
       output: this.controller.output,

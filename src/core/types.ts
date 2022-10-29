@@ -21,3 +21,18 @@ export type RemoveNever<T extends object> = Omit<T, keyof {
 }>
 
 export type Fn = (...args: any[]) => any
+
+declare global {
+  interface AbortSignal extends EventTarget {
+    reason: unknown
+  }
+
+  interface EventTarget {
+    addEventListener(type: string, listener: Fn): void
+    removeEventListener(type: string, listener: Fn): void
+  }
+
+  interface AbortController {
+    abort (reason: any): void
+  }
+}

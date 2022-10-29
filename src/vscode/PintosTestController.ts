@@ -1,13 +1,13 @@
 import * as vscode from "vscode"
 import { ensureLookupTestsInPhase } from "../core/grade/lookup"
 import { TestItem, TestRunRequest, TestStatus } from "../core/grade/TestItem"
-import { childProcessToPromise, scopedCommand, ScopedCommandExecutor } from "../core/launch"
+import { childProcessToPromise, scopedCommand, ScopedCommandExecutor, SpawnAbortRequest } from "../core/launch"
 import { getCurrentWorkspaceUri, pickOptions, showStopMessage, createScopedHandler, uriFromCurrentWorkspace, withErrorHandler } from "./utils"
 import { generateTestId, getDirOfTest, getNameOfTest, onMissingDiscoverMakefile, onMissingTestDir, splitTestId } from "../core/grade/utils"
 import { bind, iterableForEach, iterLikeTolist, prop, waitForEach, waitMap } from "../core/utils/fp/common"
 import { cleanAndCompilePhase } from "../core/grade/compile"
 import { setStatusFromResultFile } from "../core/grade/run"
-import { executeOrStopOnError } from "./errors"
+import { executeOrStopOnError, PintOSExtensionCancellationError } from "./errors"
 import { ChildProcessWithoutNullStreams } from "node:child_process"
 import colors from "../core/utils/colors"
 import PintosTestsFsWatcher from "./PintosTestsFsWatcher"
@@ -527,6 +527,7 @@ export abstract class TestLotProcess extends TestLotUiManager {
   protected currentProcess: TestItem<vscode.TestItem> | null = null
   protected shell: PintosShell
   protected compiledPhases: string[] = []
+  protected compilationAbortController?: AbortController
 
   constructor (args: {
     request: Partial<vscode.TestRunRequest>
@@ -555,7 +556,7 @@ export abstract class TestLotProcess extends TestLotUiManager {
     super.cancel()
   }
 
-  protected async compileIfNeeded (test: TestItem) {
+  protected async compileIfNeeded (test: TestItem, abort?: AbortSignal) {
     if (!this.compiledPhases.includes(test.phase)) {
       this.controller.output?.appendLine(`[make] compile ${test.name}\n`)
       await childProcessToPromise({
@@ -565,7 +566,8 @@ export abstract class TestLotProcess extends TestLotUiManager {
         }),
         onData: (buffer: Buffer) => {
           this.controller.output?.append(buffer.toString())
-        }
+        },
+        abort
       })
       this.controller.output?.appendLine("")
 
@@ -589,6 +591,13 @@ export abstract class TestLotProcess extends TestLotUiManager {
 
   public canWait () {
     return true
+  }
+
+  dispose(): void {
+    this.compilationAbortController?.abort(SpawnAbortRequest.of({
+      error: new PintOSExtensionCancellationError()
+    }))
+    super.dispose()
   }
 
   protected abstract execute(test: TestItem<vscode.TestItem>): Promise<void>

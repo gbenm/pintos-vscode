@@ -2,9 +2,9 @@ import { ChildProcessWithoutNullStreams } from "child_process"
 import * as vscode from "vscode"
 import gdbServer from "../../core/debug/gdbServer"
 import { TestItem } from "../../core/grade/TestItem"
-import { childProcessToPromise } from "../../core/launch"
+import { childProcessToPromise, SpawnAbortRequest } from "../../core/launch"
 import { promise } from "../../core/utils"
-import { executeOrStopOnError, PintOSExtensionError } from "../errors"
+import { executeOrStopOnError, PintOSExtensionCancellationError, PintOSExtensionError } from "../errors"
 import { TestController, TestLotProcess } from "../PintosTestController"
 import { pickOptions, showStopMessage } from "../utils"
 import { pintosGdbConfig } from "./config"
@@ -33,8 +33,21 @@ export default class TestDebugger extends TestLotProcess {
       throw new PintOSExtensionError("Can't debug a composite test")
     }
 
+    this.compilationAbortController = new AbortController()
+
     this.controller.output?.show()
-    await this.compileIfNeeded(test)
+    await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      cancellable: true,
+      title: `Compiling ${test.phase}`
+    }, (_, token) => {
+
+      token.onCancellationRequested(() => this.compilationAbortController!.abort(
+        SpawnAbortRequest.of({ error: new PintOSExtensionCancellationError("Canceled compilation") })
+      ))
+
+      return this.compileIfNeeded(test, this.compilationAbortController!.signal)
+    })
 
     setupPintosDebugger()
 

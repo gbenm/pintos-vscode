@@ -14,6 +14,7 @@ import PintosTestsFsWatcher from "./PintosTestsFsWatcher"
 import Storage from "./Storage"
 import PintosShell from "../core/launch/PintosShell"
 import { Config } from "./config"
+import { searchFileByName } from "../core/utils"
 
 export interface TestController extends vscode.TestController {
   readonly rootTests: readonly TestItem<vscode.TestItem>[]
@@ -338,7 +339,14 @@ export default class PintosTestController extends VSCTestController {
         onMissingDiscoverMakefile,
         testDataBuilder: (test: Readonly<TestItem<vscode.TestItem>>) => {
           this.allTests.set(test.gid, <TestItem<vscode.TestItem>> test)
-          const vsctest: vscode.TestItem = this.createTestItem(test.gid, test.name)
+
+          let filepath = undefined
+          if (test.children.length === 0) {
+            filepath = searchFileByName(uriFromCurrentWorkspace(...test.id.split("/")).fsPath)
+          }
+
+          const uri = filepath ? vscode.Uri.parse(filepath) : undefined
+          const vsctest: vscode.TestItem = this.createTestItem(test.gid, test.name, uri)
 
           vsctest.description = vsctestDescription(test.backless)
 

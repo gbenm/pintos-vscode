@@ -373,7 +373,6 @@ export default class PintosTestController extends VSCTestController {
 
     const watcher = new PintosTestsFsWatcher({
       folders,
-      rootTests: this.rootTests,
       controller: this
     })
 

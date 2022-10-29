@@ -20,7 +20,6 @@ export default class PintosTestsFsWatcher implements vscode.Disposable {
   constructor (args: {
     folders: vscode.WorkspaceFolder[]
     controller: TestController
-    rootTests: readonly TestItem<vscode.TestItem>[]
   }) {
     this.folders = args.folders
     this.controller = args.controller

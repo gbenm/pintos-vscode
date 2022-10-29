@@ -44,7 +44,7 @@ export default class TestDebugger extends TestLotProcess {
         SpawnAbortRequest.of({ error: new PintOSExtensionCancellationError("Canceled compilation") })
       ))
 
-      return this.compileIfNeeded(test)
+      return this.compile(test)
     })
 
     setupPintosDebugger()
@@ -99,7 +99,8 @@ export default class TestDebugger extends TestLotProcess {
       }
     })
 
-    this.restartServerTimeout = setTimeout(() => {
+    this.restartServerTimeout = setTimeout(async () => {
+      await this.compile(test)
       this.controller.output?.appendLine("[restart] Pintos gdb server")
       this.startGdbServer(test, scheduler)
     }, 1000)

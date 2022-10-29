@@ -562,22 +562,26 @@ export abstract class TestLotProcess extends TestLotUiManager {
 
   protected async compileIfNeeded (test: TestItem) {
     if (!this.compiledPhases.includes(test.phase)) {
-      this._compilationAbortController = new AbortController()
-      this.controller.output?.appendLine(`[make] compile ${test.name}\n`)
-      await childProcessToPromise({
-        process: this.shell.make({
-          cwd: test.phase,
-          args: []
-        }),
-        onData: (buffer: Buffer) => {
-          this.controller.output?.append(buffer.toString())
-        },
-        abort: this.compilationAbortController?.signal
-      })
-      this.controller.output?.appendLine("")
-
+      await this.compile(test)
       this.compiledPhases.push(test.phase)
     }
+  }
+
+  protected async compile (test: TestItem) {
+    this._compilationAbortController = new AbortController()
+
+    this.controller.output?.appendLine(`[make] compile ${test.phase}\n`)
+    await childProcessToPromise({
+      process: this.shell.make({
+        cwd: test.phase,
+        args: []
+      }),
+      onData: (buffer: Buffer) => {
+        this.controller.output?.append(buffer.toString())
+      },
+      abort: this.compilationAbortController?.signal
+    })
+    this.controller.output?.appendLine("")
   }
 
   private async dequeueAndRunUntilEmpty() {

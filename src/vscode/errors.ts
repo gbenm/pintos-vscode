@@ -3,9 +3,10 @@ import { OptionalPromiseLike } from "../core/types"
 
 export function handleError (error: unknown, errorMessage?: string) {
   if (error instanceof PintOSExtensionError) {
-    vscode.window.showErrorMessage(error.message)
-  } else if (error instanceof PintOSExtensionCancellationError) {
-    vscode.window.showErrorMessage(error.message || "Canceled Action")
+    showMessageOfExtError({
+      message: error.message,
+      severity: error.severity
+    })
   } else if (error instanceof Error) {
     const thenable = vscode.window.showErrorMessage(errorMessage ?? error.message, "show stacktrace")
     thenable.then((value) => {
@@ -18,6 +19,22 @@ export function handleError (error: unknown, errorMessage?: string) {
   }
 }
 
+export function showMessageOfExtError ({ message, severity }: { message: string, severity: ErrorSeverity }) {
+  switch (severity) {
+    case "error":
+      vscode.window.showErrorMessage(message)
+      break
+    case "warning":
+      vscode.window.showWarningMessage(message)
+      break
+    case "info":
+      vscode.window.showWarningMessage(message)
+      break
+    default:
+      throw new Error("[Error Handler] Unknown severity message")
+  }
+}
+
 export async function executeOrStopOnError<T>({ execute, message, onError }: { execute: () => OptionalPromiseLike<T>, message?: string, onError?: (e: unknown) => void }) {
   try {
     return await execute()
@@ -27,6 +44,16 @@ export async function executeOrStopOnError<T>({ execute, message, onError }: { e
   }
 }
 
-export class PintOSExtensionError extends Error {}
+export class PintOSExtensionError extends Error {
+  constructor (message: string, public readonly severity: ErrorSeverity = "error") {
+    super(message)
+  }
+}
 
-export class PintOSExtensionCancellationError extends Error {}
+export type ErrorSeverity = "error" | "warning" | "info"
+
+export class PintOSExtensionCancellationError extends PintOSExtensionError {
+  constructor (message: string = "Canceled Action", severity: ErrorSeverity = "warning") {
+    super(message, severity)
+  }
+}

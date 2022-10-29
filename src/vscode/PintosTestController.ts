@@ -342,7 +342,7 @@ export default class PintosTestController extends VSCTestController {
 
           let filepath = undefined
           if (test.children.length === 0) {
-            filepath = searchFileByName(uriFromCurrentWorkspace(...test.id.split("/")).fsPath)
+            filepath = test.resultFile
           }
 
           const uri = filepath ? vscode.Uri.parse(filepath) : undefined

@@ -51,6 +51,11 @@
       {
         "command": "pintos.reflectTestsStatusFromResultFiles",
         "title": "Reflect tests status from the result files"
+      },
+      {
+        "command": "pintos.openResourceTestFile",
+        "title": "Open test source file",
+        "icon": "$(open-preview)"
       }
     ],
     "menus": {
@@ -70,6 +75,17 @@
         {
           "command": "pintos.reflectTestsStatusFromResultFiles",
           "when": "pintos.supported"
+        },
+        {
+          "command": "pintos.openResourceTestFile",
+          "when": "resourceExtname == .result"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "pintos.openResourceTestFile",
+          "when": "resourceExtname == .result",
+          "group": "navigation"
         }
       ]
     },

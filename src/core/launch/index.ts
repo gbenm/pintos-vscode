@@ -181,6 +181,10 @@ export function childProcessToPromise(
 
     process.on("close", dispose(resolver.resolve))
     process.on("error", dispose(reject))
+
+    if (abort?.aborted) {
+      killProcess()
+    }
   })
 }
 

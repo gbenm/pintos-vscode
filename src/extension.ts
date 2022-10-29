@@ -3,13 +3,13 @@ import checkPintosHealth from "./vscode/checkPintosHealth"
 import { Config } from "./vscode/config"
 import createPintosProject from "./vscode/createPintosProject"
 import { addGdbMacrosToPath } from "./vscode/debug/config"
-import TestDebugProfile from "./vscode/debug/Profile"
 import PintosTestController, { TestRunProfilesBuilders } from "./vscode/PintosTestController"
 import reflectTestsStatusFromResultFiles from "./vscode/reflectTestsStatusFromResultFiles"
 import resetTestController from "./vscode/resetTestController"
-import TestExecuteProfile from "./vscode/run/ExecuteTestProfile"
+import TestExecuteProfile from "./vscode/run/Profile"
+import TestDebugProfile from "./vscode/debug/Profile"
 import setupDevContainer from "./vscode/setupDevContainer"
-import { getCurrentWorkspaceUri, createScopedHandler, uriFromCurrentWorkspace, existsInWorkspace } from "./vscode/utils"
+import { getCurrentWorkspaceUri, createScopedHandler, existsInWorkspace } from "./vscode/utils"
 
 const output = createPintosOutputChannel()
 

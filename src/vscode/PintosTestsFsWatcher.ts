@@ -2,6 +2,7 @@ import * as vscode from "vscode"
 import { setStatusFromResultFile } from "../core/grade/run"
 import { TestItem } from "../core/grade/TestItem"
 import { iterableForEach } from "../core/utils/fp/common"
+import { PintosBuildDirsWatcher } from "./PintosBuildDirsWatcher"
 import { TestController, vsctestDescription } from "./PintosTestController"
 
 export default class PintosTestsFsWatcher implements vscode.Disposable {
@@ -20,9 +21,27 @@ export default class PintosTestsFsWatcher implements vscode.Disposable {
   constructor (args: {
     folders: vscode.WorkspaceFolder[]
     controller: TestController
+    buildDirsFsWatcher: PintosBuildDirsWatcher
   }) {
     this.folders = args.folders
     this.controller = args.controller
+    this.subscribeToOnDeletedBuildDir(args.buildDirsFsWatcher)
+  }
+
+  private subscribeToOnDeletedBuildDir (buildDirsWatcher: PintosBuildDirsWatcher) {
+    const onDeletedBuildDir = (phase: string) => {
+      const test = this.controller.rootTests.find(test => test.phase === phase)
+      if (test) {
+        iterableForEach(child => child.backless = true, test.testLeafs)
+      }
+    }
+
+    buildDirsWatcher.on("deleted", onDeletedBuildDir)
+    this.disposables.push({
+      dispose () {
+        buildDirsWatcher.off("deleted", onDeletedBuildDir)
+      }
+    })
   }
 
   start () {
@@ -38,7 +57,6 @@ export default class PintosTestsFsWatcher implements vscode.Disposable {
     })
 
     this.watchResultFiles()
-    this.watchBuildDirs()
   }
 
   private watchResultFiles () {
@@ -76,19 +94,6 @@ export default class PintosTestsFsWatcher implements vscode.Disposable {
 
         this.disposables.push(watcher)
       })
-  }
-
-  private watchBuildDirs() {
-    this.controller.rootTests.forEach((test) => {
-      const pattern = new vscode.RelativePattern(test.basePath, "build")
-      const watcher = vscode.workspace.createFileSystemWatcher(pattern, true, true)
-
-      watcher.onDidDelete(() => {
-        iterableForEach(child => child.backless = true, test.testLeafs)
-      })
-
-      this.disposables.push(watcher)
-    })
   }
 
   public changeDescriptionOf (item: TestItem<vscode.TestItem>, backless: boolean) {

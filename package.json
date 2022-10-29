@@ -143,6 +143,12 @@
           ],
           "default": "qemu",
           "description": "The simulator to be used when extension uses pintos cli directly"
+        },
+        "pintos.gradeRegex": {
+          "type": "string",
+          "default": "Total(\\t|\\s)+(?<grade>\\d+[.]\\d)+%\\/(?<total>\\d+[.]\\d+)%",
+          "minLength": 12,
+          "description": "Regular expression to extract the grade and total from grade file (groups total and grade must be present)"
         }
       }
     }

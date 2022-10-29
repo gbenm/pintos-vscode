@@ -11,6 +11,9 @@ import TestDebugProfile from "./vscode/debug/Profile"
 import setupDevContainer from "./vscode/setupDevContainer"
 import { getCurrentWorkspaceUri, createScopedHandler, existsInWorkspace } from "./vscode/utils"
 import openTestSourceFile from "./vscode/openTestSourceFile"
+import { PintosBuildDirsWatcher } from "./vscode/PintosBuildDirsWatcher"
+import PintosStatusBar from "./vscode/PintosStatusBar"
+import openGradeFile from "./vscode/openGradeFile"
 
 const output = createPintosOutputChannel()
 
@@ -41,11 +44,14 @@ export async function activate(context: vscode.ExtensionContext) {
     TestDebugProfile.create
   ]
 
+  const buildDirsFsWatcher = new PintosBuildDirsWatcher(Config.pintosPhases)
+
   if (pintosSupported) {
     currentTestControllerWrap.controller = await PintosTestController.create({
       phases: Config.pintosPhases,
       context,
       output,
+      buildDirsFsWatcher,
       profilesBuilders: testRunProfilesBuilders
     })
   }
@@ -54,12 +60,17 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("pintos.createNewProject", createScopedHandler(createPintosProject, context, output)),
     vscode.commands.registerCommand("pintos.setupDevContainer", createScopedHandler(setupDevContainer, output)),
     vscode.commands.registerCommand("pintos.checkHealth", createScopedHandler(checkPintosHealth, output)),
+    vscode.commands.registerCommand("pintos.openGradeFileOf", createScopedHandler(openGradeFile)),
+    await PintosStatusBar.create({
+      buildDirsFsWatcher,
+      phases: Config.pintosPhases
+    })
   )
 
   if (hasActiveTestController(currentTestControllerWrap)) {
     addGdbMacrosToPath()
     context.subscriptions.push(
-      vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, context, output, currentTestControllerWrap, testRunProfilesBuilders)),
+      vscode.commands.registerCommand("pintos.resetTestController", createScopedHandler(resetTestController, context, output, currentTestControllerWrap, testRunProfilesBuilders, buildDirsFsWatcher)),
       vscode.commands.registerCommand("pintos.reflectTestsStatusFromResultFiles", createScopedHandler(reflectTestsStatusFromResultFiles, currentTestControllerWrap)),
       currentTestControllerWrap,
       vscode.commands.registerCommand("pintos.openResourceTestFile", createScopedHandler(openTestSourceFile, { controllerWrap: currentTestControllerWrap }))

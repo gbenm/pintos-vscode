@@ -15,6 +15,7 @@ import Storage from "./Storage"
 import PintosShell from "../core/launch/PintosShell"
 import { Config } from "./config"
 import { searchFileByName } from "../core/utils"
+import { PintosBuildDirsWatcher } from "./PintosBuildDirsWatcher"
 
 export interface TestController extends vscode.TestController {
   readonly rootTests: readonly TestItem<vscode.TestItem>[]
@@ -211,6 +212,7 @@ export default class PintosTestController extends VSCTestController {
     context: vscode.ExtensionContext
     output?: vscode.OutputChannel
     profilesBuilders: TestRunProfilesBuilders
+    buildDirsFsWatcher: PintosBuildDirsWatcher
   }): Promise<PintosTestController> {
     const storage = new Storage(descriptor.context.workspaceState, "testController")
     const controller = new PintosTestController(storage, descriptor.phases)
@@ -219,7 +221,7 @@ export default class PintosTestController extends VSCTestController {
 
     const tests = await controller.discoverTests()
     controller.rootTests = tests
-    controller.watchTestsFiles()
+    controller.watchTestsFiles(descriptor.buildDirsFsWatcher)
 
     tests.forEach((test, i) => {
       test.children.forEach((subtest) => {
@@ -366,14 +368,15 @@ export default class PintosTestController extends VSCTestController {
     })
   }
 
-  private watchTestsFiles() {
+  private watchTestsFiles(buildDirsFsWatcher: PintosBuildDirsWatcher) {
     const folders = this.phases.map(phase => uriFromCurrentWorkspace(phase)).map(
       uri => vscode.workspace.getWorkspaceFolder(uri)!
     ).filter(folder => !!folder)
 
     const watcher = new PintosTestsFsWatcher({
       folders,
-      controller: this
+      controller: this,
+      buildDirsFsWatcher
     })
 
     watcher.start()

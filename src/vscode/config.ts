@@ -62,6 +62,16 @@ export class Config {
     })
   }
 
+  static get pintosGradeRegex (): RegExp {
+    const key = "gradeRegex"
+    const pattern = this.config.get<string>(key)
+    const value = pattern ? new RegExp(pattern, "gi") : undefined
+    return this.required({
+      key,
+      value
+    })
+  }
+
   private static get config () {
     return vscode.workspace.getConfiguration("pintos")
   }

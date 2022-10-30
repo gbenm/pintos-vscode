@@ -24,7 +24,7 @@ export async function runSpecificTest({ item, output, shell }: TestRunRequest): 
     const result = (await childProcessToPromise({ process: testProcess })).toString()
     output?.appendLine(result)
 
-    const [_, pass, fail] = result.match(/(^pass)|(^fail)/mi) || []
+    const [_, __, pass, fail] = result.match(/((pass)|(fail)) (.+)/i) || []
 
     if (pass) {
       status = "passed"
@@ -78,8 +78,8 @@ export async function runPintosPhase({ item, output, shell }: TestRunRequest): P
         output?.append(partialResult)
         const end = Date.now()
 
-        const passedTests = partialResult.match(/^pass.*/mig)?.map(extractTestName) || []
-        const failedTests = partialResult.match(/^fail.*/mig)?.map(extractTestName) || []
+        const passedTests = partialResult.match(/pass .+/gi)?.map(extractTestName) || []
+        const failedTests = partialResult.match(/fail .+/gi)?.map(extractTestName) || []
 
         let anyResultFromThisBuffer = false
         const estimatedExecutionTime = (end - start) / (passedTests.length + failedTests.length)
@@ -144,7 +144,7 @@ export function getTestStateFromResultFile (file: string) {
 
   if (exists) {
     const content = readFileSync(file).toString()
-    const [_, pass, fail] = content.match(/(^pass)|(^fail)/mi) || []
+    const [_, __, pass, fail, ...rest] = content.match(/((pass)|(fail))\W*/i) || []
 
     if (pass) {
       status = "passed"

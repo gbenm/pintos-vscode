@@ -6,7 +6,7 @@ import { clonePintosSnapshot, initPintosProject } from "../core/create"
 import { executeOrStopOnError } from "./errors"
 import { existsSync } from "node:fs"
 import { TextEncoder } from "node:util"
-import { getCurrentWorkspaceUri, getUserInput, parseUri, pickOptions, showStopMessage } from "./utils"
+import { getCurrentWorkspaceUri, getUserInput, uriFromFile, pickOptions, showStopMessage } from "./utils"
 
 const stopMessage = "stop PintOS setup"
 
@@ -150,7 +150,7 @@ async function mvPintosCodeToUserInputFolder({ output, codeFolder }: {
   output.appendLine("Start moving the source code")
   const dstUri = vscode.Uri.joinPath(currentWorkspaceUri, pintosTargetFolder)
   await vscode.workspace.fs.rename(
-    vscode.Uri.parse(codeFolder),
+    vscode.Uri.file(codeFolder),
     dstUri,
     { overwrite: true }
   )
@@ -179,10 +179,10 @@ async function vscInitPintosProject(pintosPath: string, output: vscode.OutputCha
       return existsSync(joinPath(pintosPath, filename))
     },
     removeGitDir(filename) {
-      return vscode.workspace.fs.delete(parseUri(pintosPath, filename), { recursive: true })
+      return vscode.workspace.fs.delete(uriFromFile(pintosPath, filename), { recursive: true })
     },
     writeFile(filename, content) {
-      return vscode.workspace.fs.writeFile(parseUri(pintosPath, filename), new TextEncoder().encode(content))
+      return vscode.workspace.fs.writeFile(uriFromFile(pintosPath, filename), new TextEncoder().encode(content))
     }
   })
 }

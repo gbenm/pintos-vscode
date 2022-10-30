@@ -5,8 +5,8 @@ import { handleError } from "./errors"
 import { scopedCommand } from "../core/launch"
 import { promise } from "../core/utils"
 
-export function parseUri(path: string, ...pathSegments: string[]) {
-  return vscode.Uri.parse(join(path, ...pathSegments))
+export function uriFromFile(path: string, ...pathSegments: string[]) {
+  return vscode.Uri.file(join(path, ...pathSegments))
 }
 
 export function showStopMessage(output?: vscode.OutputChannel) {

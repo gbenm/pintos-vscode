@@ -29,7 +29,7 @@ export async function clonePintosSnapshot({ localPath, outputChannel, repoUrl, c
   progressHandler?: (data: SimpleGitProgressEvent) => void
 }) {
   const git = simpleGit({
-    config: ["core.autocrlf=input"],
+    config: ["core.autocrlf=false"],
     abort,
     progress (data) {
       const { method, progress, stage, processed, total } = data

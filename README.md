@@ -19,7 +19,7 @@ for full documenation (only in spanish)
 - Linux environment (windows needs docker for this)
 - Editor Config extension
 - C/C++ extension (in linux)
-- Dev containers extension
+- [Dev containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) (if you use docker)
 
 ## Extension Settings
 - `pintos.buildUtils` by default `true`. Runs `cd utils && make` before execute "pintos health" command

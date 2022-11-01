@@ -28,8 +28,7 @@
   "main": "./dist/extension.js",
   "extensionDependencies": [
     "EditorConfig.EditorConfig",
-    "ms-vscode.cpptools",
-    "ms-vscode-remote.remote-containers"
+    "ms-vscode.cpptools"
   ],
   "contributes": {
     "commands": [

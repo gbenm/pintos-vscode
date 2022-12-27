@@ -3,10 +3,10 @@ import { mkdirsSync, removeSync } from "fs-extra"
 import { join as joinPath } from "node:path"
 import { Config } from "./config"
 import { clonePintosSnapshot, initPintosProject } from "../core/create"
-import { executeOrStopOnError } from "./errors"
+import { executeOrStopOnError, PintOSExtensionError } from "./errors"
 import { existsSync } from "node:fs"
 import { TextEncoder } from "node:util"
-import { getCurrentWorkspaceUri, getUserInput, uriFromFile, pickOptions, showStopMessage } from "./utils"
+import { getCurrentWorkspaceUri, getUserInput, uriFromFile, pickOptions, showStopMessage, existsUri } from "./utils"
 import { GitAuthorUnknownError } from "../core/exceptions"
 
 const stopMessage = "stop PintOS setup"
@@ -150,8 +150,20 @@ async function mvPintosCodeToUserInputFolder({ output, codeFolder }: {
 
   output.appendLine("Start moving the source code")
   const dstUri = vscode.Uri.joinPath(currentWorkspaceUri, pintosTargetFolder)
+
+  const srcUri = vscode.Uri.file(codeFolder)
+
+  if (!await existsUri(srcUri)) {
+    throw new PintOSExtensionError(`
+      The source code folder does not exist.
+      Usually this happens when the user select a wrong code folder in the repository.
+      Run the setup again and select the correct code folder (select "clone again" in the
+      prompt).
+    `)
+  }
+
   await vscode.workspace.fs.rename(
-    vscode.Uri.file(codeFolder),
+    srcUri,
     dstUri,
     { overwrite: true }
   )

@@ -116,8 +116,12 @@ export function withErrorHandler<Fn extends (...args: any[]) => OptionalPromise<
 }
 
 export async function existsInWorkspace(...relativePath: string[]) {
+  return existsUri(uriFromCurrentWorkspace(...relativePath))
+}
+
+export async function existsUri(uri: vscode.Uri) {
   try {
-    await vscode.workspace.fs.stat(uriFromCurrentWorkspace(...relativePath))
+    await vscode.workspace.fs.stat(uri)
     return true
   } catch {
     return false

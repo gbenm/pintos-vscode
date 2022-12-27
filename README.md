@@ -3,7 +3,7 @@
 > **Important:** this is a testing version, the stable version is coming soon
 
 Pintos extension, go to [pintos vscode docs](https://gbenm.github.io/pintos-utils/pintosvsc)
-for full documenation (only in spanish)
+for full documentation (in Spanish only. It's strongly recommend reading)
 
 ## Features
 

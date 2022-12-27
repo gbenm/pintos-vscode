@@ -47,7 +47,7 @@ export async function clonePintosSnapshot({ localPath, outputChannel, repoUrl, c
       .cwd({ path: localPath, root: true })
       .raw("sparse-checkout", "add", codeFolder)
   } else {
-    await git.clone(repoUrl, localPath, ["--progress"])
+    await git.clone(repoUrl, localPath, ["--progress", "--depth=1"])
   }
 }
 

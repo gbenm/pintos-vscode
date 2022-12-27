@@ -1,4 +1,5 @@
 import simpleGit, { SimpleGit, SimpleGitProgressEvent } from "simple-git"
+import { GitAuthorUnknownError } from "./exceptions"
 import { OptionalPromiseLike, OutputChannel } from "./types"
 import { conditionalExecute } from "./utils"
 
@@ -95,7 +96,22 @@ export async function initPintosProject({ output, pintosPath, exists, removeGitD
   await git.init()
     .addRemote("origin", gitRemote)
     .add(".")
-    .commit("feat: first commit")
+
+  await failIfTheAuthorIsUnknown(git)
+
+  await git.commit("feat: first commit")
+}
+
+async function failIfTheAuthorIsUnknown(git: SimpleGit) {
+  const nameConfig = await git.getConfig("user.name")
+  const emailConfig = await git.getConfig("user.email")
+
+  const name = nameConfig.value
+  const email = emailConfig.value
+
+  if (!name || !email) {
+    throw new GitAuthorUnknownError()
+  }
 }
 
 function gitOutputHandler(output: OutputChannel) {

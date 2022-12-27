@@ -7,6 +7,7 @@ import { executeOrStopOnError } from "./errors"
 import { existsSync } from "node:fs"
 import { TextEncoder } from "node:util"
 import { getCurrentWorkspaceUri, getUserInput, uriFromFile, pickOptions, showStopMessage } from "./utils"
+import { GitAuthorUnknownError } from "../core/exceptions"
 
 const stopMessage = "stop PintOS setup"
 
@@ -171,18 +172,32 @@ async function vscInitPintosProject(pintosPath: string, output: vscode.OutputCha
     onError: showStopMessage(output)
   })
 
-  await initPintosProject({
-    output,
-    pintosPath,
-    gitRemote,
-    exists(filename) {
-      return existsSync(joinPath(pintosPath, filename))
-    },
-    removeGitDir(filename) {
-      return vscode.workspace.fs.delete(uriFromFile(pintosPath, filename), { recursive: true })
-    },
-    writeFile(filename, content) {
-      return vscode.workspace.fs.writeFile(uriFromFile(pintosPath, filename), new TextEncoder().encode(content))
+  try {
+    await initPintosProject({
+      output,
+      pintosPath,
+      gitRemote,
+      exists(filename) {
+        return existsSync(joinPath(pintosPath, filename))
+      },
+      removeGitDir(filename) {
+        return vscode.workspace.fs.delete(uriFromFile(pintosPath, filename), { recursive: true })
+      },
+      writeFile(filename, content) {
+        return vscode.workspace.fs.writeFile(uriFromFile(pintosPath, filename), new TextEncoder().encode(content))
+      }
+    })
+  } catch (e) {
+    if (e instanceof GitAuthorUnknownError) {
+      vscode.window.showWarningMessage(`
+        Can't auto commit initial files because the git author isn't configured.
+        You must configure it manually (
+          git config user.name "Your Name"
+          git config user.email "Your Email"
+        ), then commit the files manually.
+      `)
+    } else {
+      throw e
     }
-  })
+  }
 }

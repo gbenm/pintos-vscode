@@ -17,8 +17,8 @@ trim_trailing_whitespace = true
 insert_final_newline = true
 `
 
-const defaultGitAttributes = `# Don't normalize
-* -text
+const defaultGitAttributes = `# Always use LF line endings for text files
+* text=auto eol=lf
 `
 
 export async function clonePintosSnapshot({ localPath, outputChannel, repoUrl, codeFolder, abort, progressHandler }: {

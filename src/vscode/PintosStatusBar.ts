@@ -96,11 +96,11 @@ class PintosGradeFsWatcher extends EventEmitter implements vscode.Disposable {
 
   static async create ({ buildDirsFsWatcher, phases }: { phases: readonly string[], buildDirsFsWatcher: PintosBuildDirsWatcher }) {
     const watcher = new PintosGradeFsWatcher(phases, buildDirsFsWatcher)
-    await watcher.watch()
+    await watcher.setup()
     return watcher
   }
 
-  private async watch () {
+  private async setup () {
     await waitForEach(async (phase) => {
       const uri = uriFromCurrentWorkspace(phase, "build")
 
@@ -123,6 +123,7 @@ class PintosGradeFsWatcher extends EventEmitter implements vscode.Disposable {
         }
       }
 
+      watcher.onDidCreate(notifyUpdate)
       watcher.onDidChange(notifyUpdate)
       watcher.onDidDelete(() => {
         this.emit("gradeStatus", phase, { type: "remove" })
